@@ -233,4 +233,4 @@ The implementation plan is detailed and ready to execute. Once initiated, the bu
 
 **Built with love so families can share the game, not the spoilers.** ⚾
 
-*For questions or contributions, open an issue or PR.*
+*For questions or contributions, open an issue or PR.*# watch-lock
