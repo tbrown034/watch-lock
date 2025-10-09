@@ -5,31 +5,31 @@
 ```typescript
 // The heart of WatchLock - monotonic position system
 export interface Position {
-  pos: number;           // Monotonic integer (0, 1, 2, ...)
+  pos: number; // Monotonic integer (0, 1, 2, ...)
   posMeta: PositionMeta; // Sport-specific metadata
 }
 
 export type PositionMeta = MlbMeta | NbaMeta | NflMeta;
 
 export interface MlbMeta {
-  sport: 'mlb';
-  inning: number;        // 1-9+ (extra innings allowed, no max)
-  half: 'TOP' | 'BOTTOM';
-  outs: 0 | 1 | 2;      // Only 0-2, never 3
+  sport: "mlb";
+  inning: number; // 1-9+ (extra innings allowed, no max)
+  half: "TOP" | "BOTTOM";
+  outs: 0 | 1 | 2; // Only 0-2, never 3
 }
 
 export interface NbaMeta {
-  sport: 'nba';
+  sport: "nba";
   quarter: 1 | 2 | 3 | 4 | 5; // 5 = OT
-  minutes: number;       // 0-12 (counting down)
-  seconds: number;       // 0-59
+  minutes: number; // 0-12 (counting down)
+  seconds: number; // 0-59
 }
 
 export interface NflMeta {
-  sport: 'nfl';
+  sport: "nfl";
   quarter: 1 | 2 | 3 | 4 | 5; // 5 = OT
-  minutes: number;       // 0-15 (counting down)
-  seconds: number;       // 0-59
+  minutes: number; // 0-15 (counting down)
+  seconds: number; // 0-59
 }
 ```
 
@@ -51,7 +51,7 @@ export interface Room {
 export interface Game {
   id: string;
   roomId: string;
-  sport: 'mlb' | 'nba' | 'nfl';
+  sport: "mlb" | "nba" | "nfl";
   title: string;
   homeTeam: string;
   awayTeam: string;
@@ -83,7 +83,7 @@ export interface Message {
   createdAt: Date;
 }
 
-export type MessageKind = 'text' | 'emoji' | 'reaction';
+export type MessageKind = "text" | "emoji" | "reaction";
 
 // User with profile
 export interface User {
@@ -98,7 +98,7 @@ export interface User {
 export interface RoomMember {
   roomId: string;
   userId: string;
-  role: 'owner' | 'member';
+  role: "owner" | "member";
   joinedAt: Date;
   user?: User; // Joined data
 }
@@ -130,7 +130,7 @@ export interface JoinRoomResponse {
 
 // Game Management
 export interface StartGameRequest {
-  sport: 'mlb' | 'nba' | 'nfl';
+  sport: "mlb" | "nba" | "nfl";
   title: string;
   homeTeam: string;
   awayTeam: string;
@@ -155,7 +155,7 @@ export interface GetProgressResponse {
 export interface ObfuscatedProgress {
   userId: string;
   username: string;
-  hint: 'behind' | 'near' | 'ahead' | 'live';
+  hint: "behind" | "near" | "ahead" | "live";
 }
 
 // Messages
@@ -190,7 +190,7 @@ export type RealtimeEvent =
   | GameEndedEvent;
 
 export interface MessageCreatedEvent {
-  type: 'MESSAGE_CREATED';
+  type: "MESSAGE_CREATED";
   payload: {
     message: MessageWithAuthor;
     gameId: string;
@@ -198,17 +198,17 @@ export interface MessageCreatedEvent {
 }
 
 export interface ProgressUpdatedEvent {
-  type: 'PROGRESS_UPDATED';
+  type: "PROGRESS_UPDATED";
   payload: {
     userId: string;
     username: string;
     pos: number;
-    hint: 'behind' | 'near' | 'ahead' | 'live';
+    hint: "behind" | "near" | "ahead" | "live";
   };
 }
 
 export interface MemberJoinedEvent {
-  type: 'MEMBER_JOINED';
+  type: "MEMBER_JOINED";
   payload: {
     member: RoomMember;
     roomId: string;
@@ -216,14 +216,14 @@ export interface MemberJoinedEvent {
 }
 
 export interface GameStartedEvent {
-  type: 'GAME_STARTED';
+  type: "GAME_STARTED";
   payload: {
     game: Game;
   };
 }
 
 export interface GameEndedEvent {
-  type: 'GAME_ENDED';
+  type: "GAME_ENDED";
   payload: {
     gameId: string;
     finalPos: number;
@@ -295,7 +295,10 @@ export interface MessageFilter {
 
 // Progress obfuscator
 export interface ProgressObfuscator {
-  obfuscate(userPos: number, otherPos: number): 'behind' | 'near' | 'ahead' | 'live';
+  obfuscate(
+    userPos: number,
+    otherPos: number
+  ): "behind" | "near" | "ahead" | "live";
   generateHint(hiddenCount: number, nextMilestone: number): string;
 }
 ```
@@ -321,7 +324,7 @@ export interface RoomFormData {
 }
 
 export interface GameFormData {
-  sport: 'mlb' | 'nba' | 'nfl';
+  sport: "mlb" | "nba" | "nfl";
   title: string;
   homeTeam: string;
   awayTeam: string;
@@ -362,7 +365,7 @@ export interface GameHeaderProps {
 }
 
 export interface ProgressControlProps {
-  sport: 'mlb' | 'nba' | 'nfl';
+  sport: "mlb" | "nba" | "nfl";
   position: Position;
   onChange: (position: Position) => void;
   isLive?: boolean;
@@ -453,7 +456,10 @@ export interface UseAuthReturn {
 
 export interface UseRealtimeReturn {
   isConnected: boolean;
-  subscribe: (channel: string, callback: (event: RealtimeEvent) => void) => void;
+  subscribe: (
+    channel: string,
+    callback: (event: RealtimeEvent) => void
+  ) => void;
   unsubscribe: (channel: string) => void;
   presence: Map<string, any>;
 }
@@ -463,40 +469,36 @@ export interface UseRealtimeReturn {
 
 ```typescript
 export class WatchLockError extends Error {
-  constructor(
-    message: string,
-    public code: ErrorCode,
-    public details?: any
-  ) {
+  constructor(message: string, public code: ErrorCode, public details?: any) {
     super(message);
-    this.name = 'WatchLockError';
+    this.name = "WatchLockError";
   }
 }
 
 export enum ErrorCode {
   // Auth errors
-  AUTH_REQUIRED = 'AUTH_REQUIRED',
-  INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
-  USER_EXISTS = 'USER_EXISTS',
+  AUTH_REQUIRED = "AUTH_REQUIRED",
+  INVALID_CREDENTIALS = "INVALID_CREDENTIALS",
+  USER_EXISTS = "USER_EXISTS",
 
   // Room errors
-  ROOM_NOT_FOUND = 'ROOM_NOT_FOUND',
-  ROOM_FULL = 'ROOM_FULL',
-  ALREADY_MEMBER = 'ALREADY_MEMBER',
-  INVALID_SHARE_CODE = 'INVALID_SHARE_CODE',
+  ROOM_NOT_FOUND = "ROOM_NOT_FOUND",
+  ROOM_FULL = "ROOM_FULL",
+  ALREADY_MEMBER = "ALREADY_MEMBER",
+  INVALID_SHARE_CODE = "INVALID_SHARE_CODE",
 
   // Game errors
-  GAME_NOT_FOUND = 'GAME_NOT_FOUND',
-  GAME_ALREADY_ACTIVE = 'GAME_ALREADY_ACTIVE',
-  NOT_IN_GAME = 'NOT_IN_GAME',
+  GAME_NOT_FOUND = "GAME_NOT_FOUND",
+  GAME_ALREADY_ACTIVE = "GAME_ALREADY_ACTIVE",
+  NOT_IN_GAME = "NOT_IN_GAME",
 
   // Message errors
-  MESSAGE_TOO_LONG = 'MESSAGE_TOO_LONG',
-  RATE_LIMIT = 'RATE_LIMIT',
+  MESSAGE_TOO_LONG = "MESSAGE_TOO_LONG",
+  RATE_LIMIT = "RATE_LIMIT",
 
   // Network errors
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  REALTIME_ERROR = 'REALTIME_ERROR',
+  NETWORK_ERROR = "NETWORK_ERROR",
+  REALTIME_ERROR = "REALTIME_ERROR",
 }
 ```
 

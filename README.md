@@ -42,8 +42,9 @@ WatchLock is a trust-first, family-oriented messaging system for sports fans. Bu
 
 ### Launch Features
 - 🏠 **Family Rooms** - 2-6 private members, no public spaces
-- ⚾ **MLB Support** - Full inning/half/outs granularity
+- ⚾ **MLB Support** - Full inning/half/outs granularity (including end-of-half, pregame, and postgame states)
 - 🎯 **Perfect Filtering** - `message.pos <= user.pos` rule
+- 🔄 **Live Sync** - Optional one-tap sync that pulls the latest inning/outs from the free MLB Stats API
 - 📱 **Mobile First** - Built for couch viewing
 - 🔗 **Share Codes** - 6-character viral invites
 - ⚡ **Real-time** - Sub-100ms message delivery
@@ -60,10 +61,17 @@ WatchLock is a trust-first, family-oriented messaging system for sports fans. Bu
 
 ### Core Innovation: Monotonic Position System
 ```typescript
-// Convert any game position to a single integer
-// MLB: 6 positions per inning (Top 0-2 outs, Bottom 0-2 outs)
-function encodeMlbPosition(inning: number, half: 'TOP' | 'BOTTOM', outs: number): number {
-  return (inning - 1) * 6 + (half === 'TOP' ? 0 : 3) + outs;
+// Convert any MLB position to a single integer
+// 8 steps per inning (Top: 0,1,2,END • Bottom: 0,1,2,END)
+// Pregame/Postgame map to sentinel values before/after the grid
+function encodeMlbPosition(meta: MlbMeta): number {
+  if (meta.phase === 'PREGAME') return MLB_PREGAME_POSITION;
+  if (meta.phase === 'POSTGAME') return MLB_POSTGAME_POSITION;
+
+  const inningBase = (meta.inning - 1) * 8;
+  const halfOffset = meta.half === 'TOP' ? 0 : 4;
+  const outsOffset = meta.outs === 'END' ? 3 : meta.outs;
+  return inningBase + halfOffset + outsOffset;
 }
 
 // The ONE rule that prevents all spoilers
@@ -77,6 +85,9 @@ function filterMessages(messages: Message[], userPos: number): Message[] {
 - **Backend**: Supabase (PostgreSQL + Auth + Realtime)
 - **Deployment**: Vercel Edge Functions
 - **Testing**: Jest + Playwright
+
+### Data Sources
+- **MLB Stats API** (`lib/services/mlbSchedule.ts`): free, no-key endpoint used through `/api/games/schedule` to hydrate today's live MLB matchups with a mock fallback.
 
 ### Database Design
 ```sql

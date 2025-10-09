@@ -1,72 +1,59 @@
-import { formatMlbPosition } from '@/lib/position';
-import { MlbMeta } from '@/lib/position';
+import { formatMlbPosition, MlbMeta } from '@/lib/position';
 
 interface MessageCardProps {
   message: {
     id: string;
+    author: string;
     body: string;
-    pos: number;
-    posMeta: MlbMeta;
-    createdAt: Date;
-    author: {
-      id: string;
-      username: string;
-      avatarUrl?: string | null;
-    };
+    position: MlbMeta;
   };
-  isOwn: boolean;
-  showPosition?: boolean;
+  isOwnMessage: boolean;
 }
 
-export function MessageCard({ message, isOwn, showPosition = true }: MessageCardProps) {
-  const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    }).format(date);
-  };
-
+export function MessageCard({ message, isOwnMessage }: MessageCardProps) {
   return (
-    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-xs lg:max-w-md ${isOwn ? 'order-2' : 'order-1'}`}>
-        <div className={`flex items-start space-x-2 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
-          {/* Avatar */}
-          <div className="flex-shrink-0">
-            <div className="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center text-white text-sm font-bold">
-              {message.author.username[0].toUpperCase()}
-            </div>
-          </div>
-
-          {/* Message Content */}
-          <div className="flex-1">
-            <div className="flex items-baseline space-x-2 mb-1">
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {message.author.username}
-              </span>
-              {showPosition && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  • {formatMlbPosition(message.posMeta)}
-                </span>
-              )}
-            </div>
-
-            <div
-              className={`rounded-lg px-4 py-2 ${
-                isOwn
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-              }`}
-            >
-              <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
-            </div>
-
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {formatTime(message.createdAt)}
-            </div>
-          </div>
+    <div
+      className={`p-4 rounded-xl shadow-sm transform hover:scale-[1.02] transition-all ${
+        isOwnMessage
+          ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white ml-8'
+          : 'bg-white dark:bg-slate-700 mr-8 border border-slate-200 dark:border-slate-600'
+      }`}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <div
+          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+            isOwnMessage
+              ? 'bg-white/20 text-white'
+              : 'bg-blue-500 text-white'
+          }`}
+          aria-hidden="true"
+        >
+          {message.author[0]}
+        </div>
+        <div className="flex-1">
+          <span
+            className={`font-bold text-sm ${
+              isOwnMessage ? 'text-white' : 'text-slate-800 dark:text-slate-100'
+            }`}
+          >
+            {message.author}
+          </span>
+          <span
+            className={`text-xs ml-2 ${
+              isOwnMessage ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
+            }`}
+          >
+            {formatMlbPosition(message.position)}
+          </span>
         </div>
       </div>
+      <p
+        className={`text-base leading-relaxed ${
+          isOwnMessage ? 'text-white' : 'text-slate-800 dark:text-slate-200'
+        }`}
+      >
+        {message.body}
+      </p>
     </div>
   );
 }

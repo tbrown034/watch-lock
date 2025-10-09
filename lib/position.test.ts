@@ -2,155 +2,129 @@ import {
   encodeMlbPosition,
   decodeMlbPosition,
   formatMlbPosition,
+  formatMlbPositionWithTeams,
   isMessageVisible,
   filterMessagesByPosition,
   isValidMlbPosition,
-  MlbMeta
+  MlbMeta,
+  MLB_PREGAME_POSITION,
+  MLB_POSTGAME_POSITION
 } from './position';
 
 describe('Position Encoding', () => {
-  it('should encode Top 1st, 0 outs as 0', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 1, half: 'TOP', outs: 0 };
-    expect(encodeMlbPosition(pos)).toBe(0);
+  it('encodes top of 1st with 0-2 outs and END correctly', () => {
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0 })).toBe(0);
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 1 })).toBe(1);
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 2 })).toBe(2);
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 'END' })).toBe(3);
   });
 
-  it('should encode Top 1st, 1 out as 1', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 1, half: 'TOP', outs: 1 };
-    expect(encodeMlbPosition(pos)).toBe(1);
+  it('encodes bottom of 1st correctly', () => {
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'BOTTOM', outs: 0 })).toBe(4);
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'BOTTOM', outs: 2 })).toBe(6);
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'BOTTOM', outs: 'END' })).toBe(7);
   });
 
-  it('should encode Top 1st, 2 outs as 2', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 1, half: 'TOP', outs: 2 };
-    expect(encodeMlbPosition(pos)).toBe(2);
+  it('encodes later innings and extra innings', () => {
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 2, half: 'TOP', outs: 0 })).toBe(8);
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 2 })).toBe(70);
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 10, half: 'TOP', outs: 0 })).toBe(72);
   });
 
-  it('should encode Bottom 1st, 0 outs as 3', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 1, half: 'BOTTOM', outs: 0 };
-    expect(encodeMlbPosition(pos)).toBe(3);
-  });
-
-  it('should encode Bottom 1st, 2 outs as 5', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 1, half: 'BOTTOM', outs: 2 };
-    expect(encodeMlbPosition(pos)).toBe(5);
-  });
-
-  it('should encode Top 2nd, 0 outs as 6', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 2, half: 'TOP', outs: 0 };
-    expect(encodeMlbPosition(pos)).toBe(6);
-  });
-
-  it('should encode Bottom 9th, 2 outs as 53', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 2 };
-    expect(encodeMlbPosition(pos)).toBe(53);
-  });
-
-  it('should handle extra innings', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 10, half: 'TOP', outs: 0 };
-    expect(encodeMlbPosition(pos)).toBe(54); // (10-1) * 6 + 0 + 0
+  it('encodes pregame and postgame sentinels', () => {
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0, phase: 'PREGAME' })).toBe(MLB_PREGAME_POSITION);
+    expect(encodeMlbPosition({ sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 'END', phase: 'POSTGAME' })).toBe(MLB_POSTGAME_POSITION);
   });
 });
 
 describe('Position Decoding', () => {
-  it('should decode 0 to Top 1st, 0 outs', () => {
-    const pos = decodeMlbPosition(0);
-    expect(pos).toEqual({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0 });
+  it('decodes regular in-game positions', () => {
+    expect(decodeMlbPosition(0)).toEqual({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0 });
+    expect(decodeMlbPosition(4)).toEqual({ sport: 'mlb', inning: 1, half: 'BOTTOM', outs: 0 });
+    expect(decodeMlbPosition(70)).toEqual({ sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 2 });
   });
 
-  it('should decode 3 to Bottom 1st, 0 outs', () => {
-    const pos = decodeMlbPosition(3);
-    expect(pos).toEqual({ sport: 'mlb', inning: 1, half: 'BOTTOM', outs: 0 });
+  it('decodes END positions', () => {
+    expect(decodeMlbPosition(3)).toEqual({ sport: 'mlb', inning: 1, half: 'TOP', outs: 'END' });
+    expect(decodeMlbPosition(7)).toEqual({ sport: 'mlb', inning: 1, half: 'BOTTOM', outs: 'END' });
   });
 
-  it('should decode 53 to Bottom 9th, 2 outs', () => {
-    const pos = decodeMlbPosition(53);
-    expect(pos).toEqual({ sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 2 });
+  it('decodes pregame and postgame sentinels', () => {
+    expect(decodeMlbPosition(MLB_PREGAME_POSITION)).toEqual({
+      sport: 'mlb',
+      inning: 1,
+      half: 'TOP',
+      outs: 0,
+      phase: 'PREGAME'
+    });
+
+    expect(decodeMlbPosition(MLB_POSTGAME_POSITION)).toEqual({
+      sport: 'mlb',
+      inning: 9,
+      half: 'BOTTOM',
+      outs: 'END',
+      phase: 'POSTGAME'
+    });
   });
 });
 
-describe('Message Visibility - THE CRITICAL TEST', () => {
-  it('should show messages at exact user position', () => {
+describe('Formatting', () => {
+  it('formats active innings', () => {
+    expect(formatMlbPosition({ sport: 'mlb', inning: 5, half: 'TOP', outs: 1 })).toBe('Top 5th • 1 out');
+    expect(formatMlbPosition({ sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 2 })).toBe('Bottom 9th • 2 outs');
+  });
+
+  it('formats END-of-half positions', () => {
+    expect(formatMlbPosition({ sport: 'mlb', inning: 3, half: 'TOP', outs: 'END' })).toBe('End of top half • 3rd');
+    expect(formatMlbPosition({ sport: 'mlb', inning: 3, half: 'BOTTOM', outs: 'END' })).toBe('End of bottom half • 3rd');
+  });
+
+  it('formats phases', () => {
+    expect(formatMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0, phase: 'PREGAME' })).toBe('Pregame');
+    expect(formatMlbPosition({ sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 'END', phase: 'POSTGAME' })).toBe('Final');
+  });
+
+  it('formats with team context', () => {
+    const away = 'Cubs';
+    const home = 'Cardinals';
+    expect(formatMlbPositionWithTeams({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0 }, away, home)).toBe('Top 1st • 0 outs • Cubs batting');
+    expect(formatMlbPositionWithTeams({ sport: 'mlb', inning: 1, half: 'TOP', outs: 'END' }, away, home)).toBe('End of top half • 1st');
+    expect(formatMlbPositionWithTeams({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0, phase: 'PREGAME' }, away, home)).toBe('Pregame • Cubs @ Cardinals');
+    expect(formatMlbPositionWithTeams({ sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 'END', phase: 'POSTGAME' }, away, home)).toBe('Final • Cubs @ Cardinals');
+  });
+});
+
+describe('Visibility Logic', () => {
+  it('obeys core spoiler prevention rule', () => {
     expect(isMessageVisible(10, 10)).toBe(true);
-  });
-
-  it('should show messages before user position', () => {
     expect(isMessageVisible(5, 10)).toBe(true);
-  });
-
-  it('should NEVER show messages after user position', () => {
     expect(isMessageVisible(11, 10)).toBe(false);
-  });
-
-  it('should show message at position 0', () => {
     expect(isMessageVisible(0, 5)).toBe(true);
   });
-});
 
-describe('Message Filtering', () => {
-  const messages = [
-    { id: '1', pos: 0, body: 'Game start' },
-    { id: '2', pos: 5, body: 'Bottom 1st' },
-    { id: '3', pos: 10, body: 'Top 2nd' },
-    { id: '4', pos: 15, body: 'Bottom 2nd' },
-    { id: '5', pos: 20, body: 'Top 3rd' }
-  ];
+  it('filters messages by position', () => {
+    const messages = [
+      { id: '1', pos: encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0 }), body: 'Game start' },
+      { id: '2', pos: encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 'END' }), body: 'Top half over' },
+      { id: '3', pos: encodeMlbPosition({ sport: 'mlb', inning: 2, half: 'TOP', outs: 0 }), body: 'Top 2nd begins' }
+    ];
 
-  it('should filter messages correctly for user at position 10', () => {
-    const visible = filterMessagesByPosition(messages, 10);
-    expect(visible).toHaveLength(3);
-    expect(visible.map(m => m.id)).toEqual(['1', '2', '3']);
-  });
-
-  it('should show no messages for user at position -1', () => {
-    const visible = filterMessagesByPosition(messages, -1);
-    expect(visible).toHaveLength(0);
-  });
-
-  it('should show all messages for user at position 100', () => {
-    const visible = filterMessagesByPosition(messages, 100);
-    expect(visible).toHaveLength(5);
+    const visible = filterMessagesByPosition(messages, encodeMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 'END' }));
+    expect(visible.map((m) => m.id)).toEqual(['1', '2']);
   });
 });
 
-describe('Position Validation', () => {
-  it('should validate correct MLB position', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 5, half: 'TOP', outs: 2 };
-    expect(isValidMlbPosition(pos)).toBe(true);
+describe('Validation', () => {
+  it('accepts valid in-game and phase states', () => {
+    expect(isValidMlbPosition({ sport: 'mlb', inning: 5, half: 'TOP', outs: 2 })).toBe(true);
+    expect(isValidMlbPosition({ sport: 'mlb', inning: 5, half: 'TOP', outs: 'END' })).toBe(true);
+    expect(isValidMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0, phase: 'PREGAME' })).toBe(true);
+    expect(isValidMlbPosition({ sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 'END', phase: 'POSTGAME' })).toBe(true);
   });
 
-  it('should reject position with 3 outs', () => {
-    const pos: any = { sport: 'mlb', inning: 5, half: 'TOP', outs: 3 };
-    expect(isValidMlbPosition(pos)).toBe(false);
-  });
-
-  it('should reject position with invalid half', () => {
-    const pos: any = { sport: 'mlb', inning: 5, half: 'MIDDLE', outs: 1 };
-    expect(isValidMlbPosition(pos)).toBe(false);
-  });
-
-  it('should reject position with negative inning', () => {
-    const pos: any = { sport: 'mlb', inning: -1, half: 'TOP', outs: 0 };
-    expect(isValidMlbPosition(pos)).toBe(false);
-  });
-
-  it('should reject position with inning 0', () => {
-    const pos: any = { sport: 'mlb', inning: 0, half: 'TOP', outs: 0 };
-    expect(isValidMlbPosition(pos)).toBe(false);
-  });
-});
-
-describe('Position Formatting', () => {
-  it('should format Top 5th, 1 out correctly', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 5, half: 'TOP', outs: 1 };
-    expect(formatMlbPosition(pos)).toBe('T5 • 1 out');
-  });
-
-  it('should format Bottom 9th, 2 outs correctly', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 2 };
-    expect(formatMlbPosition(pos)).toBe('B9 • 2 outs');
-  });
-
-  it('should format 0 outs with plural', () => {
-    const pos: MlbMeta = { sport: 'mlb', inning: 1, half: 'TOP', outs: 0 };
-    expect(formatMlbPosition(pos)).toBe('T1 • 0 outs');
+  it('rejects invalid data', () => {
+    expect(isValidMlbPosition({ sport: 'mlb', inning: 0, half: 'TOP', outs: 0 })).toBe(false);
+    expect(isValidMlbPosition({ sport: 'mlb', inning: 1, half: 'MIDDLE' as any, outs: 0 })).toBe(false);
+    expect(isValidMlbPosition({ sport: 'mlb', inning: 1, half: 'TOP', outs: 3 as any })).toBe(false);
   });
 });
