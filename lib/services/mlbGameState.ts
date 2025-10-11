@@ -17,6 +17,10 @@ interface GameDateTime {
 interface GameData {
   status?: GameStatus;
   datetime?: GameDateTime;
+  teams?: {
+    home?: { name?: string };
+    away?: { name?: string };
+  };
 }
 
 interface LineScore {
@@ -25,12 +29,38 @@ interface LineScore {
   inningState?: string;
   isTopInning?: boolean;
   outs?: number;
+  teams?: {
+    home?: { runs?: number; hits?: number; errors?: number };
+    away?: { runs?: number; hits?: number; errors?: number };
+  };
+  innings?: Array<{
+    num?: number;
+    home?: { runs?: number | null };
+    away?: { runs?: number | null };
+  }>;
+  offense?: {
+    batter?: { fullName?: string; jerseyNumber?: string };
+    onDeck?: { fullName?: string };
+    inHole?: { fullName?: string };
+    first?: { fullName?: string; jerseyNumber?: string };
+    second?: { fullName?: string; jerseyNumber?: string };
+    third?: { fullName?: string; jerseyNumber?: string };
+  };
+  defense?: {
+    pitcher?: { fullName?: string; jerseyNumber?: string };
+  };
 }
 
 interface FeedResponse {
   gameData?: GameData;
   liveData?: {
     linescore?: LineScore;
+    plays?: {
+      currentPlay?: {
+        result?: { description?: string };
+        count?: { balls?: number; strikes?: number; outs?: number };
+      };
+    };
   };
 }
 
@@ -42,6 +72,24 @@ export interface MlbGameState {
   startTime?: string;
   isLive: boolean;
   isFinal: boolean;
+  score?: {
+    home: { runs: number; hits: number; errors: number; name: string };
+    away: { runs: number; hits: number; errors: number; name: string };
+    innings?: Array<{ num: number; home?: number | null; away?: number | null }>;
+  };
+  bases?: {
+    first?: string;
+    second?: string;
+    third?: string;
+  };
+  matchup?: {
+    batter?: string;
+    pitcher?: string;
+    onDeck?: string;
+    inHole?: string;
+    count?: { balls: number; strikes: number };
+  };
+  lastPlay?: string;
 }
 
 function formatTime(dateIso: string | undefined, timezone: string): string | undefined {
@@ -144,6 +192,57 @@ export async function fetchMlbGameState(
     resolvedPosMeta = { ...resolvedPosMeta, phase };
   }
 
+  const score = data.liveData?.linescore?.teams
+    ? {
+        home: {
+          runs: data.liveData?.linescore?.teams?.home?.runs ?? 0,
+          hits: data.liveData?.linescore?.teams?.home?.hits ?? 0,
+          errors: data.liveData?.linescore?.teams?.home?.errors ?? 0,
+          name: data.gameData?.teams?.home?.name ?? 'Home'
+        },
+        away: {
+          runs: data.liveData?.linescore?.teams?.away?.runs ?? 0,
+          hits: data.liveData?.linescore?.teams?.away?.hits ?? 0,
+          errors: data.liveData?.linescore?.teams?.away?.errors ?? 0,
+          name: data.gameData?.teams?.away?.name ?? 'Away'
+        },
+        innings: data.liveData?.linescore?.innings?.map((inning) => ({
+          num: inning.num ?? 0,
+          home: inning.home?.runs ?? null,
+          away: inning.away?.runs ?? null
+        }))
+      }
+    : undefined;
+
+  const bases = data.liveData?.linescore?.offense
+    ? {
+        first: data.liveData.linescore.offense.first?.fullName ?? undefined,
+        second: data.liveData.linescore.offense.second?.fullName ?? undefined,
+        third: data.liveData.linescore.offense.third?.fullName ?? undefined
+      }
+    : undefined;
+
+  const matchup = data.liveData?.linescore
+    ? {
+        batter:
+          data.liveData.linescore.offense?.batter?.fullName ??
+          data.liveData.linescore.offense?.batter?.jerseyNumber ??
+          undefined,
+        pitcher:
+          data.liveData.linescore.defense?.pitcher?.fullName ??
+          data.liveData.linescore.defense?.pitcher?.jerseyNumber ??
+          undefined,
+        onDeck: data.liveData.linescore.offense?.onDeck?.fullName ?? undefined,
+        inHole: data.liveData.linescore.offense?.inHole?.fullName ?? undefined,
+        count: {
+          balls: data.liveData.plays?.currentPlay?.count?.balls ?? 0,
+          strikes: data.liveData.plays?.currentPlay?.count?.strikes ?? 0
+        }
+      }
+    : undefined;
+
+  const lastPlay = data.liveData?.plays?.currentPlay?.result?.description;
+
   return {
     posMeta: resolvedPosMeta,
     status,
@@ -152,5 +251,9 @@ export async function fetchMlbGameState(
     startTime,
     isLive,
     isFinal,
+    score,
+    bases,
+    matchup,
+    lastPlay
   };
 }

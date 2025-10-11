@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { fetchTodayMlbGames } from '@/lib/services/mlbSchedule';
 
-export const revalidate = 60 * 30;
+export const revalidate = 1800;
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

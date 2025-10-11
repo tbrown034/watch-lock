@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ProgressSliderWithMarkers } from '@/components/game/ProgressSliderWithMarkers';
 import { MessageCard } from '@/components/game/MessageCard';
+import { GameStateCard } from '@/components/game/GameStateCard';
 import { mockGames, MockMessage } from '@/lib/mock-data';
 import { MlbMeta, encodeMlbPosition, formatMlbPositionWithTeams } from '@/lib/position';
 import { MESSAGE_CONSTRAINTS, UI_CONFIG, STORAGE_KEYS } from '@/lib/constants';
 import type { MlbScheduleGame } from '@/lib/services/mlbSchedule';
+import type { MlbGameState } from '@/lib/services/mlbGameState';
 import { Calendar, Clock, MessageSquare, Target, MapPin, Package, ExternalLink, Lightbulb, RefreshCw } from 'lucide-react';
 
 export default function GameRoomPage() {
@@ -51,6 +53,7 @@ export default function GameRoomPage() {
   const [newMessage, setNewMessage] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [liveState, setLiveState] = useState<MlbGameState | null>(null);
   const autoSyncRef = useRef(false);
   const timezoneAbbr = UI_CONFIG.TIMEZONE.split('/').pop();
   const resolvedGame = game ?? liveGame ?? null;
@@ -69,23 +72,31 @@ export default function GameRoomPage() {
     setIsSyncing(true);
     try {
       const response = await fetch(`/api/games/${gameId}/state`);
-      const data = await response.json();
+      const data = (await response.json()) as (MlbGameState & { source?: string; status?: string; message?: string }) | { message?: string; source?: string; status?: string };
 
       if (!response.ok) {
         throw new Error(data?.message || 'Unable to sync live position');
       }
 
-      if (data.posMeta) {
+      if ('posMeta' in data && data.posMeta) {
         setUserPosition(data.posMeta as MlbMeta);
       } else if (data.status === 'demo') {
         setUserPosition((prev) => ({ ...prev, phase: 'PREGAME' }));
-      } else if (data.isFinal) {
+      } else if ('isFinal' in data && data.isFinal) {
         setUserPosition((prev) => ({ ...prev, phase: 'POSTGAME', outs: 'END' }));
       }
 
-      setSyncMessage(data.message ?? 'Live position updated.');
+      if (data.source === 'mock' || data.status === 'demo') {
+        setLiveState(null);
+      } else if ('score' in data || 'bases' in data || 'matchup' in data || 'lastPlay' in data) {
+        setLiveState(data as MlbGameState);
+      }
+
+      const statusMessage = 'message' in data ? data.message : undefined;
+      setSyncMessage(statusMessage ?? 'Live position updated.');
     } catch (error) {
       setSyncMessage(error instanceof Error ? error.message : 'Unable to reach the live feed.');
+      setLiveState(null);
     } finally {
       setIsSyncing(false);
     }
@@ -154,7 +165,10 @@ export default function GameRoomPage() {
     ...UI_CONFIG.DATE_FORMAT.FULL,
     timeZone: UI_CONFIG.TIMEZONE
   });
-  const previewUrl = isLiveGame && resolvedGame ? `https://www.mlb.com/gameday/${resolvedGame.gamePk}` : null;
+  const previewUrl =
+    isLiveGame && resolvedGame && 'gamePk' in resolvedGame
+      ? `https://www.mlb.com/gameday/${resolvedGame.gamePk}`
+      : null;
 
   if (!resolvedGame) {
     if (isScheduleLoading) {
@@ -180,6 +194,28 @@ export default function GameRoomPage() {
       </div>
     );
   }
+
+  const handleResetProgress = () => {
+    const resetMeta: MlbMeta = {
+      sport: 'mlb',
+      inning: 1,
+      half: 'TOP',
+      outs: 0,
+      phase: 'PREGAME'
+    };
+    setUserPosition(resetMeta);
+    setSyncMessage('Progress reset to pregame.');
+    setLiveState(null);
+  };
+
+  const handleClearMessages = () => {
+    setMessages([]);
+    setSyncMessage('All local messages cleared.');
+  };
+
+  const handleDeleteMessage = (id: string) => {
+    setMessages((prev) => prev.filter((msg) => msg.id !== id));
+  };
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
@@ -309,6 +345,20 @@ export default function GameRoomPage() {
               {syncMessage && (
                 <p className="text-xs text-slate-500 dark:text-slate-400">{syncMessage}</p>
               )}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  onClick={handleResetProgress}
+                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Reset progress
+                </button>
+                <button
+                  onClick={handleClearMessages}
+                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Clear messages
+                </button>
+              </div>
             </div>
 
             <ProgressSliderWithMarkers
@@ -321,6 +371,16 @@ export default function GameRoomPage() {
               awayTeam={awayTeam}
               homeTeam={homeTeam}
             />
+
+            {liveState && (
+              <GameStateCard
+                score={liveState.score}
+                bases={liveState.bases}
+                matchup={liveState.matchup}
+                lastPlay={liveState.lastPlay}
+                statusMessage={liveState.message}
+              />
+            )}
 
             {/* Message Input */}
             <div className="card-elevated p-6">
@@ -407,8 +467,14 @@ export default function GameRoomPage() {
                   {visibleMessages.map((message) => (
                     <MessageCard
                       key={message.id}
-                      message={message}
+                      message={{
+                        id: message.id,
+                        author: message.author,
+                        body: message.body,
+                        position: message.position
+                      }}
                       isOwnMessage={message.author === 'You'}
+                      onDelete={handleDeleteMessage}
                     />
                   ))}
                 </div>

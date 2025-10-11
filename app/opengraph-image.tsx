@@ -31,7 +31,7 @@ export default function OpengraphImage() {
         <div
           style={{
             marginTop: 48,
-            display: 'inline-flex',
+            display: 'flex',
             alignItems: 'center',
             gap: 16,
             fontSize: 24,

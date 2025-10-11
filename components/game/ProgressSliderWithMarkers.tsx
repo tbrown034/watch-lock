@@ -217,8 +217,8 @@ export function ProgressSliderWithMarkers({
                 style={{ left: `${marker.percent}%` }}
               >
                 <div className="relative">
-                  <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[10px] border-t-green-500 transform translate-y-[-12px]"></div>
-                  <div className="absolute top-[-32px] left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                  <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[10px] border-t-green-500 transform translate-y-[-16px]"></div>
+                  <div className="absolute top-[-40px] left-1/2 transform -translate-x-1/2 whitespace-nowrap">
                     <MessageSquare className="w-4 h-4 text-green-600" />
                   </div>
                 </div>
@@ -269,12 +269,11 @@ export function ProgressSliderWithMarkers({
                 onClick={() => handleInningChange(inning)}
                 aria-label={`Select inning ${inning}`}
                 aria-pressed={position.inning === inning}
-                disabled={!isInGame}
                 className={`px-4 py-2 rounded-md font-semibold transition-all flex-shrink-0 ${
                   position.inning === inning && isInGame
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
-                } ${!isInGame ? 'opacity-60 cursor-not-allowed' : ''}`}
+                }`}
               >
                 {inning}
               </button>
@@ -283,8 +282,7 @@ export function ProgressSliderWithMarkers({
               <button
                 onClick={() => handleInningChange(position.inning + 1)}
                 aria-label="Add extra inning"
-                disabled={!isInGame}
-                className={`px-4 py-2 rounded-md font-semibold transition-all flex-shrink-0 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 ${!isInGame ? 'opacity-60 cursor-not-allowed' : ''}`}
+                className="px-4 py-2 rounded-md font-semibold transition-all flex-shrink-0 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
               >
                 + Extra
               </button>
@@ -305,12 +303,11 @@ export function ProgressSliderWithMarkers({
               onClick={() => handleHalfChange('TOP')}
               aria-label="Select top of inning"
               aria-pressed={position.half === 'TOP'}
-              disabled={!isInGame}
               className={`px-4 py-3 rounded-md font-semibold transition-all ${
-                position.half === 'TOP' && isInGame
+                position.half === 'TOP'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
-              } ${!isInGame ? 'opacity-60 cursor-not-allowed' : ''}`}
+              }`}
             >
               Top ▲
             </button>
@@ -318,12 +315,11 @@ export function ProgressSliderWithMarkers({
               onClick={() => handleHalfChange('BOTTOM')}
               aria-label="Select bottom of inning"
               aria-pressed={position.half === 'BOTTOM'}
-              disabled={!isInGame}
               className={`px-4 py-3 rounded-md font-semibold transition-all ${
-                position.half === 'BOTTOM' && isInGame
+                position.half === 'BOTTOM'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
-              } ${!isInGame ? 'opacity-60 cursor-not-allowed' : ''}`}
+              }`}
             >
               Bottom ▼
             </button>
@@ -340,12 +336,11 @@ export function ProgressSliderWithMarkers({
                 onClick={() => handleOutsChange(outs)}
                 aria-label={`Select ${outs} out${outs === 1 ? '' : 's'}`}
                 aria-pressed={position.outs === outs}
-                disabled={!isInGame}
                 className={`px-4 py-3 rounded-md font-semibold transition-all ${
-                  position.outs === outs && isInGame
+                  position.outs === outs
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
-                } ${!isInGame ? 'opacity-60 cursor-not-allowed' : ''}`}
+                }`}
               >
                 {outs}
               </button>
@@ -355,12 +350,11 @@ export function ProgressSliderWithMarkers({
               aria-label="End of inning"
               aria-pressed={position.outs === 'END'}
               title="Mark the 3rd out and end of half-inning"
-              disabled={!isInGame}
               className={`px-4 py-3 rounded-md font-semibold transition-all ${
-                position.outs === 'END' && isInGame
+                position.outs === 'END'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-gray-200 dark:bg-gray-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:hover:text-indigo-400'
-              } ${!isInGame ? 'opacity-60 cursor-not-allowed' : ''}`}
+              }`}
             >
               End
             </button>
@@ -386,7 +380,7 @@ export function ProgressSliderWithMarkers({
             maxLength={50}
           />
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Add context about who's batting to differentiate back-to-back plays at the same position
+            Add context about who is batting to differentiate back-to-back plays.
           </p>
         </div>
       </div>

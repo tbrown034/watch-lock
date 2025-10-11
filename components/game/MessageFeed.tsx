@@ -21,9 +21,15 @@ interface MessageFeedProps {
   messages: Message[];
   currentUserId: string;
   hiddenCount?: number;
+  onDeleteMessage?: (id: string) => void;
 }
 
-export function MessageFeed({ messages, currentUserId, hiddenCount = 0 }: MessageFeedProps) {
+export function MessageFeed({
+  messages,
+  currentUserId,
+  hiddenCount = 0,
+  onDeleteMessage
+}: MessageFeedProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,8 +67,14 @@ export function MessageFeed({ messages, currentUserId, hiddenCount = 0 }: Messag
         {messages.map((message) => (
           <MessageCard
             key={message.id}
-            message={message}
-            isOwn={message.author.id === currentUserId}
+            message={{
+              id: message.id,
+              author: message.author.username,
+              body: message.body,
+              position: message.posMeta
+            }}
+            isOwnMessage={message.author.id === currentUserId}
+            onDelete={onDeleteMessage}
           />
         ))}
       </div>

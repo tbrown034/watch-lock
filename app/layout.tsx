@@ -54,7 +54,10 @@ export const metadata: Metadata = {
     shortcut: ['/favicon.svg'],
     apple: [{ url: '/favicon.svg', type: 'image/svg+xml' }]
   },
-  manifest: '/manifest.webmanifest',
+  manifest: '/manifest.webmanifest'
+};
+
+export const viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#eff6ff' },
     { media: '(prefers-color-scheme: dark)', color: '#0f172a' }

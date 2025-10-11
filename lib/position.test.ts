@@ -87,7 +87,7 @@ describe('Formatting', () => {
   it('formats with team context', () => {
     const away = 'Cubs';
     const home = 'Cardinals';
-    expect(formatMlbPositionWithTeams({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0 }, away, home)).toBe('Top 1st • 0 outs • Cubs batting');
+    expect(formatMlbPositionWithTeams({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0 }, away, home)).toBe('Top 1st • 0 outs • Cubs Batting');
     expect(formatMlbPositionWithTeams({ sport: 'mlb', inning: 1, half: 'TOP', outs: 'END' }, away, home)).toBe('End of top half • 1st');
     expect(formatMlbPositionWithTeams({ sport: 'mlb', inning: 1, half: 'TOP', outs: 0, phase: 'PREGAME' }, away, home)).toBe('Pregame • Cubs @ Cardinals');
     expect(formatMlbPositionWithTeams({ sport: 'mlb', inning: 9, half: 'BOTTOM', outs: 'END', phase: 'POSTGAME' }, away, home)).toBe('Final • Cubs @ Cardinals');

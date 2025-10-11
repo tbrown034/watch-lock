@@ -173,7 +173,7 @@ export function formatMlbPositionWithTeams(
   }
 
   const battingTeam = meta.half === 'TOP' ? awayTeam : homeTeam;
-  return `${basePosition} • ${battingTeam} batting`;
+  return `${basePosition} • ${battingTeam} Batting`;
 }
 
 /**
