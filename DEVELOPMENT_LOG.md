@@ -526,4 +526,571 @@ describe('Message Visibility - THE CRITICAL TEST', () => {
 
 ---
 
-*This development log documents the complete implementation of WatchLock MVP, built in a single day with AI assistance. The core spoiler prevention logic is bulletproof and ready for production use.*
+## 🔐 Day 2: Supabase Authentication & Production Deployment
+**Date**: October 12, 2025
+**Focus**: Replace NextAuth with Supabase, implement Google OAuth, deploy to production
+
+### Session Goals
+1. Evaluate authentication strategy (Supabase vs NextAuth vs Vercel Postgres)
+2. Implement production-ready auth with Google OAuth
+3. Test auth flow before building database schema
+4. Deploy to Vercel with working authentication
+
+---
+
+### 🎓 What We Learned
+
+#### **Understanding Supabase**
+**What Supabase Actually Is:**
+- **4 tools in 1**: PostgreSQL database + Auth service + Row Level Security + Real-time WebSockets
+- **Replaces**: NextAuth (auth), Vercel Postgres (database), Pusher (real-time)
+- **Key benefit**: Database-level security through RLS policies
+
+**Supabase vs Alternatives:**
+```
+NextAuth + Vercel Postgres:
+✅ Simpler, one vendor
+✅ More control over auth flow
+❌ Manual auth implementation
+❌ No built-in real-time
+
+Supabase:
+✅ Auth built-in (OAuth providers ready)
+✅ RLS = security at database level
+✅ Real-time subscriptions included
+❌ Vendor lock-in
+❌ More abstraction to learn
+```
+
+**Decision Made**: Use Supabase for auth + database
+**Reasoning**:
+- Want to learn Supabase architecture
+- RLS policies are powerful for security
+- Real-time will be useful for live game updates
+- Can always migrate later if needed
+
+---
+
+#### **OAuth Flow Deep Dive**
+
+**How Google OAuth Works:**
+```
+1. User clicks "Sign in with Google"
+   ↓
+2. App redirects to Google's login page
+   ↓
+3. User authenticates with Google
+   ↓
+4. Google asks: "Allow WatchLock to access email/profile?"
+   ↓
+5. User clicks "Allow"
+   ↓
+6. Google redirects to: https://[supabase-url]/auth/v1/callback
+   ↓
+7. Supabase exchanges code for user info
+   ↓
+8. Supabase creates JWT session (stored in cookie)
+   ↓
+9. Supabase redirects to: http://localhost:3000 (or production URL)
+   ↓
+10. User is logged in!
+```
+
+**Key Players:**
+- **Google Cloud Console**: Where you create OAuth credentials
+- **Supabase**: Handles the OAuth dance (exchange code for tokens)
+- **Your App**: Just triggers the flow and receives logged-in user
+
+**Important Gotcha:**
+- Callback URL ALWAYS points to Supabase domain, not your app
+- This means ONE callback URL works for dev AND production!
+- Your app URLs go in "Authorized JavaScript origins" and "Redirect URLs"
+
+---
+
+#### **Supabase Auth Keys Explained**
+
+**Three Types of Keys:**
+
+1. **Project URL** (`NEXT_PUBLIC_SUPABASE_URL`)
+   - Your Supabase project API endpoint
+   - Example: `https://msdemnzgwzaokzjyymgi.supabase.co`
+   - Safe to expose in browser
+
+2. **Anon/Public Key** (`NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+   - Used in browser/client code
+   - **DESIGNED to be public** (that's what `NEXT_PUBLIC_` means)
+   - Respects Row Level Security policies
+   - Can't bypass permissions
+   - This is why Vercel warns you (but it's safe!)
+
+3. **Service Role Key** (`SUPABASE_SERVICE_ROLE_KEY`)
+   - Used ONLY on server
+   - **MUST be kept secret**
+   - Bypasses Row Level Security
+   - Never prefix with `NEXT_PUBLIC_`
+
+**Why This Design:**
+- Browser needs to talk to Supabase (anon key)
+- Database policies protect data (RLS)
+- Admin operations use service key (server only)
+
+---
+
+#### **Row Level Security (RLS) Concepts**
+
+**Traditional Security (What We're Used To):**
+```typescript
+// API route manually checks permissions
+export async function GET(req) {
+  const userId = await getCurrentUser()
+
+  // YOU must remember to write this check:
+  const messages = await db.query.messages.findMany({
+    where: and(
+      eq(messages.gameId, gameId),
+      // Check if user has access... easy to forget!
+    )
+  })
+}
+```
+**Problem**: If you forget the check, users can access anything!
+
+**Supabase RLS (Database-Level Security):**
+```sql
+-- Database AUTOMATICALLY enforces this:
+CREATE POLICY "Users can only see messages in their rooms"
+ON messages FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM room_members
+    WHERE room_id = messages.room_id
+    AND user_id = auth.uid()
+  )
+);
+```
+**Benefit**: Database enforces security, you can't forget!
+
+**Why This is Powerful:**
+- Security lives in database, not app code
+- Works even if you query directly from client
+- Automatic across ALL queries
+- SQL is the source of truth
+
+---
+
+### 🛠️ Implementation Steps Completed
+
+#### **1. Supabase Project Setup** (10 min)
+- Created project: `watchlock` (msdemnzgwzaokzjyymgi)
+- Region: US East (Ohio)
+- Collected credentials:
+  - Project URL
+  - Anon key (public)
+  - Service role key (secret)
+
+#### **2. Google OAuth Configuration** (15 min)
+
+**In Google Cloud Console:**
+1. Created project: "WatchLock"
+2. Enabled Google+ API
+3. Configured OAuth consent screen:
+   - App name: WatchLock
+   - Added test users
+4. Created OAuth client (Web application):
+   - Authorized JavaScript origins:
+     - `http://localhost:3000` (dev)
+     - `https://watch-lock.vercel.app` (prod)
+   - Authorized redirect URIs:
+     - `https://msdemnzgwzaokzjyymgi.supabase.co/auth/v1/callback`
+5. Copied Client ID and Secret
+
+**In Supabase Dashboard:**
+1. Authentication → Providers → Google
+2. Toggled ON
+3. Pasted Client ID and Secret
+4. Configured URL settings:
+   - Site URL: `https://watch-lock.vercel.app`
+   - Redirect URLs:
+     - `http://localhost:3000/**`
+     - `https://watch-lock.vercel.app/**`
+
+#### **3. Installed Supabase Client** (5 min)
+```bash
+npm install @supabase/supabase-js @supabase/ssr
+```
+
+**Created client utilities:**
+- `lib/supabase/client.ts` - Browser client (respects RLS)
+- `lib/supabase/server.ts` - Server client (handles cookies)
+- `middleware.ts` - Session refresh on every request
+
+#### **4. Built Auth Flow** (20 min)
+
+**Created files:**
+- `app/auth/callback/route.ts` - OAuth callback handler
+- `app/auth-test/page.tsx` - Debug/test page
+- `app/debug-user/page.tsx` - User data inspector
+
+**Updated home page:**
+- Added sign in/out functionality
+- Shows "Welcome, [Name]" when logged in
+- Google sign-in button when logged out
+- Sign out button in top right
+
+**Key code pattern:**
+```typescript
+'use client'
+
+const supabase = createClient()
+
+// Sign in
+const handleSignIn = async () => {
+  await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  })
+}
+
+// Sign out
+const handleSignOut = async () => {
+  await supabase.auth.signOut()
+}
+```
+
+#### **5. Testing Strategy: Auth BEFORE Database** (Critical Decision)
+
+**Original Plan**: Build full database schema with RLS policies immediately
+
+**Smart Pivot**: Test auth flow FIRST before building database
+- Created simple test page with Google sign-in button
+- Verified OAuth flow worked end-to-end
+- Checked user appeared in Supabase → Authentication → Users
+- **Result**: Found and fixed issues early!
+
+**Lessons:**
+- Validate foundational pieces before building on top
+- Auth is the foundation; test it thoroughly first
+- Debug pages are invaluable for understanding OAuth flow
+
+---
+
+### 🚀 Vercel Deployment Process
+
+#### **Environment Variables Setup**
+
+**Added to Vercel** (Settings → Environment Variables):
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://msdemnzgwzaokzjyymgi.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc... (anon key)
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc... (secret key)
+```
+
+**Applied to**: Production, Preview, Development
+
+**Vercel Warning Encountered:**
+```
+⚠️ This key, which is prefixed with NEXT_PUBLIC_ and includes
+the term KEY, might expose sensitive information to the browser.
+```
+
+**Resolution**: This is EXPECTED and SAFE!
+- Supabase anon key is designed to be public
+- RLS policies protect the data, not the key
+- Clicked "Confirm" and proceeded
+
+#### **Build Error: Pre-rendering Issue**
+
+**Error encountered:**
+```
+Error occurred prerendering page "/auth-test"
+@supabase/ssr: Your project's URL and API key are required
+```
+
+**Root cause**:
+- `/auth-test` and `/debug-user` pages tried to use Supabase during build
+- Environment variables not available at build time for static pages
+- Next.js tried to pre-render them as static HTML
+
+**Fix applied:**
+```typescript
+// Added to both pages
+export const dynamic = 'force-dynamic'
+```
+
+**What this does:**
+- Tells Next.js to skip pre-rendering
+- Page renders on-demand on the server
+- Env vars available at runtime
+
+**Result**: ✅ Build succeeded, deployment successful!
+
+---
+
+### 📊 Files Created/Modified
+
+**New Files:**
+- `lib/supabase/client.ts` - Browser Supabase client
+- `lib/supabase/server.ts` - Server Supabase client
+- `middleware.ts` - Auth session refresh
+- `app/auth/callback/route.ts` - OAuth callback handler
+- `app/auth-test/page.tsx` - Auth testing page
+- `app/debug-user/page.tsx` - User data debug page
+- `supabase_migration.sql` - Complete DB schema (prepared, not run yet)
+
+**Modified Files:**
+- `app/page.tsx` - Added sign in/out UI
+- `.env.local` - Added Supabase credentials
+- `package.json` - Added @supabase dependencies
+
+**Deleted Files:**
+- `.env.local.example` - No longer needed
+
+---
+
+### ✅ Current Production Status
+
+**Live URL**: https://watch-lock.vercel.app
+
+**Working Features:**
+- ✅ Google OAuth sign-in
+- ✅ Session persistence
+- ✅ Sign out functionality
+- ✅ User data from Google (name, email, profile pic)
+- ✅ Middleware refreshing sessions
+- ✅ Auth state synced across tabs
+
+**Not Yet Implemented:**
+- Database schema (SQL migration ready but not executed)
+- Rooms/games/messages (localStorage only)
+- Row Level Security policies (prepared but not applied)
+- API routes for real data (still mock/localStorage)
+
+---
+
+### 🔑 Key Decisions & Rationale
+
+#### **1. Supabase over Vercel Postgres + NextAuth**
+**Decision**: Use Supabase for everything
+**Why**:
+- Want to learn RLS (database-level security)
+- Real-time built-in (useful for live games)
+- Auth is simpler (OAuth providers ready)
+- Can migrate later if needed
+
+#### **2. Google-Only OAuth (No Email/Password)**
+**Decision**: Only implement Google sign-in for MVP
+**Why**:
+- Simpler UX (one-click login)
+- No password management
+- Most users have Google account
+- Can add more providers later
+
+#### **3. Test Auth Before Building Database**
+**Decision**: Validate OAuth flow before running migrations
+**Why**:
+- Auth is the foundation
+- Easier to debug OAuth issues in isolation
+- Prevents building on broken foundation
+- Debug pages helped understand user data structure
+
+#### **4. Dynamic Pages for Auth Tests**
+**Decision**: Use `force-dynamic` for test pages
+**Why**:
+- Pages need runtime env vars
+- Can't pre-render with Supabase client
+- Only affects test pages (not user-facing)
+- Simpler than complex build config
+
+---
+
+### 🧠 Mental Models Developed
+
+#### **Supabase Client Architecture**
+```
+Browser                     Server
+   ↓                          ↓
+createClient()          createClient()
+   ↓                          ↓
+Uses anon key          Uses anon key
+   ↓                          ↓
+Respects RLS          Handles cookies
+   ↓                          ↓
+Auto-refreshes        Server-side rendering
+```
+
+#### **OAuth Redirect Flow**
+```
+App → Google → Supabase Callback → App
+     (login)   (exchange code)    (with session)
+```
+
+**Key insight**: Callback URL is ALWAYS Supabase domain
+- Not your localhost
+- Not your production domain
+- This is why one callback works for both!
+
+#### **Environment Variables Strategy**
+```
+NEXT_PUBLIC_* → Browser (safe to expose)
+No prefix     → Server only (keep secret)
+
+NEXT_PUBLIC_SUPABASE_URL        ✅ Public
+NEXT_PUBLIC_SUPABASE_ANON_KEY   ✅ Public (RLS protects)
+SUPABASE_SERVICE_ROLE_KEY       ❌ Secret (bypasses RLS)
+```
+
+---
+
+### 🐛 Issues Encountered & Resolutions
+
+#### **Issue 1: Profile Picture Not Displaying**
+**Problem**: Google profile pic URL exists in user metadata but not rendering
+**Debugging steps**:
+1. Created `/debug-user` page to inspect raw user object
+2. Found both `picture` and `avatar_url` fields exist
+3. Both fields had valid URLs
+4. Images rendered on debug page
+
+**Root cause**: Likely browser caching or conditional rendering logic
+**Resolution**: Removed conditional check, always render image
+**Final decision**: Removed profile pic for now, focus on core features
+
+#### **Issue 2: Build Failing on Vercel**
+**Error**: "Your project's URL and API key are required"
+**Problem**: Pages using Supabase client during pre-render
+**Debugging**:
+- Checked env vars in Vercel (all present)
+- Realized error was at build time, not runtime
+- Test pages were being statically pre-rendered
+
+**Resolution**: Added `export const dynamic = 'force-dynamic'` to test pages
+**Learning**: Understand Next.js rendering modes:
+- Static (build time) = no runtime env vars
+- Dynamic (request time) = env vars available
+
+#### **Issue 3: Vercel Warning on Anon Key**
+**Warning**: "Key with NEXT_PUBLIC_ might expose sensitive info"
+**Confusion**: Is anon key safe to expose?
+**Resolution**: YES! Supabase anon key is designed to be public
+- That's why it's called "anon" (anonymous)
+- RLS policies provide security, not the key
+- Official Supabase docs say to expose it
+
+---
+
+### 📚 Documentation Created
+
+**Migration SQL** (`supabase_migration.sql`):
+- Complete database schema (profiles, rooms, games, messages, progress)
+- Row Level Security policies
+- Triggers for auto-creation (profiles, room membership)
+- Helper functions (share codes)
+- Indexes for performance
+- ~400 lines of well-commented SQL
+
+**Ready to execute when database phase begins**
+
+---
+
+### 🎯 Next Steps (Database Phase)
+
+**Phase 3: Execute Database Migration** (30 min)
+1. Run `supabase_migration.sql` in Supabase SQL Editor
+2. Verify tables created (Table Editor)
+3. Test RLS policies
+4. Confirm triggers work
+
+**Phase 4: Build API Routes** (1 hour)
+1. `POST /api/rooms` - Create room
+2. `POST /api/rooms/[id]/join` - Join via share code
+3. `POST /api/games` - Start game
+4. `GET/POST /api/games/[id]/messages` - Messages with filtering
+5. `GET/PATCH /api/games/[id]/progress` - Position tracking
+
+**Phase 5: Update UI to Use Database** (1 hour)
+1. Replace localStorage with API calls
+2. Implement real room creation flow
+3. Add share code join flow
+4. Connect message feed to real data
+
+**Phase 6: Test Multi-User Flow** (30 min)
+1. Create room as User A
+2. Join room as User B (incognito)
+3. Send messages at different positions
+4. Verify spoiler filtering works
+
+---
+
+### 💡 Key Learnings
+
+#### **Technical Insights**
+1. **Supabase simplifies auth** - OAuth in 5 minutes vs hours of NextAuth config
+2. **RLS is powerful** - Security at database level prevents entire classes of bugs
+3. **Test foundations first** - Auth before database saved debugging time
+4. **Dynamic vs static rendering matters** - Env vars only available at runtime
+
+#### **Process Insights**
+1. **Start simple, validate, then build** - Don't assume foundations work
+2. **Debug pages are invaluable** - `/debug-user` showed exact data structure
+3. **Read the errors carefully** - "Pre-render error" pointed to static page issue
+4. **One piece at a time** - Auth working? Great. Now database.
+
+#### **Product Insights**
+1. **Google OAuth is enough** - Don't need email/password for MVP
+2. **Users expect fast login** - One-click Google sign-in wins
+3. **Profile pics are nice-to-have** - Core functionality matters more
+4. **Test pages help development** - Keep them for debugging
+
+---
+
+### 📈 Progress Metrics
+
+**Time Spent**: ~4 hours
+- 1 hour: Supabase setup & OAuth config
+- 1 hour: Client implementation & auth flow
+- 1 hour: Testing, debugging, fixing issues
+- 1 hour: Deployment & troubleshooting
+
+**Code Stats**:
+- 9 files created
+- 2 files modified
+- 1 file deleted
+- ~500 lines of new code
+- ~400 lines of SQL prepared
+
+**Deployment**:
+- ✅ Production live at https://watch-lock.vercel.app
+- ✅ Google OAuth working
+- ✅ Session persistence working
+- ⏳ Database schema ready (not executed)
+
+---
+
+### 🎓 Personal Growth
+
+**New Skills Acquired**:
+1. Supabase authentication setup
+2. Google Cloud OAuth configuration
+3. Understanding anon vs service role keys
+4. Row Level Security concepts
+5. Next.js dynamic vs static rendering
+6. Debugging OAuth redirect flows
+
+**Confidence Gained**:
+- Can set up production auth in hours
+- Understand OAuth flow deeply
+- Know when to test before building
+- Comfortable with Supabase architecture
+
+**Mistakes Made & Learned From**:
+1. Almost built database before testing auth
+2. Confused about which keys are public/secret
+3. Didn't understand pre-render error initially
+4. Tried to debug profile pic when core worked
+
+---
+
+*End of Day 2 Session - Auth is live in production! Ready for database implementation next.*
