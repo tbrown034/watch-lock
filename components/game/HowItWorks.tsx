@@ -12,7 +12,7 @@ export function HowItWorks() {
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
       >
-        <span className="font-bold text-slate-900 dark:text-slate-100">
+        <span className="text-base font-bold text-slate-900 dark:text-slate-100">
           How It Works
         </span>
         {isOpen ? (

@@ -94,9 +94,9 @@ export default function AuthHeader() {
       ) : user ? (
         <Link
           href="/profile"
-          className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 text-sm font-medium text-slate-900 dark:text-slate-50 shadow-sm hover:shadow group"
+          className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 text-sm font-medium text-slate-900 dark:text-slate-50 shadow-sm hover:shadow-md active:scale-95 active:shadow-sm group"
         >
-          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500 text-white text-xs font-semibold group-hover:scale-110 transition-transform">
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500 text-white text-xs font-semibold group-hover:scale-110 group-active:scale-100 transition-transform duration-200">
             {getUserInitials()}
           </div>
           <span className="hidden sm:inline">{getUserDisplayName()}</span>
@@ -104,9 +104,9 @@ export default function AuthHeader() {
       ) : (
         <button
           onClick={handleSignIn}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg transition-all duration-200 shadow-sm hover:shadow group"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium text-sm rounded-lg transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 active:shadow-sm group"
         >
-          <LogIn className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          <LogIn className="w-4 h-4 group-hover:translate-x-0.5 group-active:translate-x-1 transition-transform duration-200" />
           <span>Sign in</span>
         </button>
       )}

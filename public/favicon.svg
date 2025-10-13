@@ -2,10 +2,26 @@
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#2563eb" />
-      <stop offset="100%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#1e40af" />
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="14" fill="url(#bg)" />
-  <path d="M14 44 L22 20 L28 34 L34 20 L42 44" fill="none" stroke="#f8fafc" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-  <circle cx="46" cy="18" r="6" fill="#facc15" />
+
+  <!-- Lock Icon -->
+  <g transform="translate(16, 14)">
+    <!-- Lock shackle (top curved part) -->
+    <path d="M 10 14 L 10 10 C 10 5.5 12 2 16 2 C 20 2 22 5.5 22 10 L 22 14"
+          fill="none"
+          stroke="#ffffff"
+          stroke-width="3.5"
+          stroke-linecap="round" />
+
+    <!-- Lock body (rectangle) -->
+    <rect x="6" y="14" width="20" height="18" rx="3"
+          fill="#ffffff" />
+
+    <!-- Keyhole -->
+    <circle cx="16" cy="21" r="2.5" fill="#2563eb" />
+    <rect x="14.5" y="21" width="3" height="6" rx="1" fill="#2563eb" />
+  </g>
 </svg>
