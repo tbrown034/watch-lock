@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
+import { User as UserIcon, LogIn } from 'lucide-react';
 
 export default function AuthHeader() {
   const [user, setUser] = useState<User | null>(null);
@@ -64,26 +65,48 @@ export default function AuthHeader() {
     }
   };
 
+  const getUserDisplayName = () => {
+    if (user?.user_metadata?.full_name) {
+      const firstName = user.user_metadata.full_name.split(' ')[0];
+      return firstName.length > 12 ? `${firstName.slice(0, 12)}...` : firstName;
+    }
+    const email = user?.email?.split('@')[0] || 'User';
+    return email.length > 12 ? `${email.slice(0, 12)}...` : email;
+  };
+
+  const getUserInitials = () => {
+    if (user?.user_metadata?.full_name) {
+      const names = user.user_metadata.full_name.split(' ');
+      return names.length > 1
+        ? `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase()
+        : names[0][0].toUpperCase();
+    }
+    return user?.email?.[0]?.toUpperCase() || 'U';
+  };
+
   return (
-    <div>
+    <div className="flex items-center">
       {loading ? (
-        <div className="px-4 py-2.5 sm:px-5 sm:py-3 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl">
-          <span className="text-sm sm:text-base text-slate-500 dark:text-slate-400">Loading...</span>
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse">
+          <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700" />
+          <div className="w-16 h-4 rounded bg-slate-200 dark:bg-slate-700" />
         </div>
       ) : user ? (
         <Link
           href="/profile"
-          className="px-4 py-2.5 sm:px-5 sm:py-3 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 rounded-xl transition-all"
+          className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 text-sm font-medium text-slate-900 dark:text-slate-50 shadow-sm hover:shadow group"
         >
-          <span className="text-sm sm:text-base font-medium text-slate-700 dark:text-slate-300">
-            {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
-          </span>
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500 text-white text-xs font-semibold group-hover:scale-110 transition-transform">
+            {getUserInitials()}
+          </div>
+          <span className="hidden sm:inline">{getUserDisplayName()}</span>
         </Link>
       ) : (
         <button
           onClick={handleSignIn}
-          className="px-4 py-2.5 sm:px-5 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm sm:text-base rounded-xl transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg transition-all duration-200 shadow-sm hover:shadow group"
         >
+          <LogIn className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           <span>Sign in</span>
         </button>
       )}

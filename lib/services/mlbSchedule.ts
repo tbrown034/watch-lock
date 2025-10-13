@@ -14,6 +14,7 @@ export interface MlbScheduleGame {
     away: number;
   };
   inning?: string;
+  gameLink?: string;
 }
 
 interface MlbScheduleResponse {
@@ -111,6 +112,7 @@ export async function fetchTodayMlbGames(timezone: string = UI_CONFIG.TIMEZONE):
       detailedState: game.status?.detailedState,
       score,
       inning,
+      gameLink: `https://www.mlb.com/gameday/${game.gamePk}`,
     };
   });
 }

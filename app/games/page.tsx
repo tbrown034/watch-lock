@@ -144,7 +144,7 @@ export default function GamesPage() {
               Today's Games
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              {today}
+              {today} • {currentTime}
             </p>
           </div>
         </div>
@@ -153,7 +153,7 @@ export default function GamesPage() {
         <section>
           <div className="mb-4">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              Live Games
+              Today's Games
             </h2>
           </div>
 
@@ -177,11 +177,38 @@ export default function GamesPage() {
             )}
 
             {schedule.games.map((game) => (
-              <Link key={game.id} href={`/games/${game.id}`} className="block">
-                <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5 hover:bg-slate-50 dark:hover:bg-slate-700/60 hover:border-slate-300 dark:hover:border-slate-600/70">
-                  <GameCard game={game} variant="live" />
+              <div key={game.id} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5">
+                <GameCard game={game} variant="live" />
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                  <button
+                    onClick={() => handleCreateRoom({ id: game.id, homeTeam: game.homeTeam, awayTeam: game.awayTeam })}
+                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base rounded-lg transition-colors shadow-sm"
+                  >
+                    Join Game
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/games/${game.id}`}
+                      className="flex-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium text-xs rounded transition-colors text-center"
+                    >
+                      Test Mode
+                    </Link>
+                    {game.gameLink && (
+                      <a
+                        href={game.gameLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium text-xs rounded transition-colors text-center flex items-center justify-center gap-1"
+                      >
+                        MLB Preview
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </section>
@@ -193,11 +220,38 @@ export default function GamesPage() {
           </div>
           <div className="space-y-3">
             {mockGames.map((game) => (
-              <Link key={game.id} href={`/games/${game.id}`} className="block">
-                <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5 hover:bg-slate-50 dark:hover:bg-slate-700/60 hover:border-slate-300 dark:hover:border-slate-600/70">
-                  <GameCard game={game} variant="demo" />
+              <div key={game.id} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5">
+                <GameCard game={game} variant="demo" />
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                  <button
+                    onClick={() => handleCreateRoom({ id: game.id, homeTeam: game.homeTeam, awayTeam: game.awayTeam })}
+                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base rounded-lg transition-colors shadow-sm"
+                  >
+                    Join Game
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/games/${game.id}`}
+                      className="flex-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium text-xs rounded transition-colors text-center"
+                    >
+                      Test Mode
+                    </Link>
+                    {game.gameLink && (
+                      <a
+                        href={game.gameLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium text-xs rounded transition-colors text-center flex items-center justify-center gap-1"
+                      >
+                        MLB Preview
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </section>

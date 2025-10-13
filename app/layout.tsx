@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import AppHeader from '@/components/AppHeader';
 import AppFooter from '@/components/AppFooter';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 const siteName = 'WatchLock';
@@ -72,15 +74,33 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <div className="flex flex-col min-h-screen">
-          <AppHeader />
-          <main className="flex-1">
-            {children}
-          </main>
-          <AppFooter />
-        </div>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 min-h-screen`}>
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const savedTheme = localStorage.getItem('theme');
+                  const theme = savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                  document.documentElement.classList.remove('light', 'dark');
+                  document.documentElement.classList.add(theme);
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+        <ThemeProvider>
+          <div className="flex flex-col min-h-screen">
+            <AppHeader />
+            <main className="flex-1">
+              {children}
+            </main>
+            <AppFooter />
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

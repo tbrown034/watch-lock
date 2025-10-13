@@ -7,6 +7,7 @@ export interface MockGame {
   startTime: string;
   status?: string;
   detailedState?: string;
+  gameLink?: string;
 }
 
 export interface MockMessage {
@@ -24,13 +25,15 @@ export const mockGames: MockGame[] = [
     awayTeam: 'Cubs',
     startTime: '6:15 PM',
     status: 'Live',
-    detailedState: 'Top 5th'
+    detailedState: 'Top 5th',
+    gameLink: 'https://www.mlb.com/gameday/746001'
   },
   {
     id: 'game-2',
     homeTeam: 'Yankees',
     awayTeam: 'Red Sox',
-    startTime: '7:10 PM'
+    startTime: '7:10 PM',
+    gameLink: 'https://www.mlb.com/gameday/746002'
   },
 
 ];

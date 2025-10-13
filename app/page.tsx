@@ -46,27 +46,27 @@ export default function Home() {
         {/* Hero Section */}
         <div className="mb-16 space-y-8 md:mb-20 md:space-y-10">
           <div className="space-y-5 md:space-y-6">
-            <p className="text-sm text-slate-400 tracking-wide">
+            <p className="text-sm text-slate-600 dark:text-slate-400 tracking-wide">
               Built for fans, families, and friends watching apart
             </p>
-            <h1 className="text-6xl sm:text-7xl md:text-8xl font-black text-blue-500 tracking-tighter leading-none">
+            <h1 className="text-6xl sm:text-7xl md:text-8xl font-black text-blue-600 dark:text-blue-500 tracking-tighter leading-none">
               WatchLock
             </h1>
             <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-bold text-white">
+              <p className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
                 Share the highs
               </p>
-              <p className="text-3xl sm:text-4xl font-bold text-blue-500">
+              <p className="text-3xl sm:text-4xl font-bold text-blue-600 dark:text-blue-500">
                 without the spoilers
               </p>
             </div>
           </div>
 
           <div className="mx-auto max-w-xl space-y-3">
-            <p className="text-lg text-slate-300">
+            <p className="text-lg text-slate-700 dark:text-slate-300">
               Watch parties now live across time zones, streaming delays, and group chats. WatchLock keeps every crew—from soccer squads to sibling text threads—celebrating together without stepping on big plays.
             </p>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               Anchor every post to the precise inning, half, or drive so nobody sees a spoiler until they catch up. Instant context, total trust.
             </p>
           </div>
@@ -92,11 +92,11 @@ export default function Home() {
               </button>
             )}
 
-            <div className="flex flex-wrap justify-center gap-2 text-sm font-medium text-slate-400">
+            <div className="flex flex-wrap justify-center gap-2 text-sm font-medium">
               {audiencePills.map((label) => (
                 <span
                   key={label}
-                  className="px-3 py-1.5 border border-slate-700/50 rounded-lg bg-slate-800/30"
+                  className="px-3 py-1.5 border border-slate-300 dark:border-slate-700/50 rounded-lg bg-slate-100 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300"
                 >
                   {label}
                 </span>
@@ -107,26 +107,26 @@ export default function Home() {
 
         {/* How It Works */}
         <div className="mb-16 grid gap-6 text-left sm:grid-cols-3 md:mb-20 md:gap-8">
-          <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 hover:border-slate-300 dark:hover:border-slate-600/70 hover:shadow-md space-y-4 p-6 group cursor-default">
-            <Timer className="h-10 w-10 text-blue-500 group-hover:scale-110 transition-transform duration-300" strokeWidth={2} aria-hidden="true" />
-            <h3 className="font-semibold text-lg text-slate-200">Set Your Progress</h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl transition-all duration-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md space-y-4 p-6 group cursor-default">
+            <Timer className="h-10 w-10 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300" strokeWidth={2} aria-hidden="true" />
+            <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-50">Set Your Progress</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               Set the exact inning, half, and outs so your group knows precisely where you are—no matter which stream or device.
             </p>
           </div>
 
-          <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 hover:border-slate-300 dark:hover:border-slate-600/70 hover:shadow-md space-y-4 p-6 group cursor-default">
-            <MessageSquare className="h-10 w-10 text-blue-500 group-hover:scale-110 transition-transform duration-300" strokeWidth={2} aria-hidden="true" />
-            <h3 className="font-semibold text-lg text-slate-200">Leave Reactions</h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl transition-all duration-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md space-y-4 p-6 group cursor-default">
+            <MessageSquare className="h-10 w-10 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300" strokeWidth={2} aria-hidden="true" />
+            <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-50">Leave Reactions</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               Drop reactions, emoji bursts, or rally cries. Every note locks to the moment it happened so the meaning never gets lost.
             </p>
           </div>
 
-          <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 hover:border-slate-300 dark:hover:border-slate-600/70 hover:shadow-md space-y-4 p-6 group cursor-default">
-            <Lock className="h-10 w-10 text-blue-500 group-hover:scale-110 transition-transform duration-300" strokeWidth={2} aria-hidden="true" />
-            <h3 className="font-semibold text-lg text-slate-200">Zero Spoilers</h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl transition-all duration-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md space-y-4 p-6 group cursor-default">
+            <Lock className="h-10 w-10 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300" strokeWidth={2} aria-hidden="true" />
+            <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-50">Zero Spoilers</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               Teammates, partners, and superfans only see what they have earned. Move forward to unlock the next celebration—spoiler math included.
             </p>
           </div>
