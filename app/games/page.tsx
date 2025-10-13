@@ -2,11 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { mockGames } from '@/lib/mock-data';
 import { GameCard } from '@/components/game/GameCard';
 import { UI_CONFIG } from '@/lib/constants';
-import { ArrowUpRight, Lightbulb, Radio } from 'lucide-react';
+import { ArrowUpRight, Lightbulb, Radio, Users, Key } from 'lucide-react';
 import type { MlbScheduleGame } from '@/lib/services/mlbSchedule';
+import type { User } from '@supabase/supabase-js';
+import { RoomCreateModal } from '@/components/room/RoomCreateModal';
+import { RoomJoinModal } from '@/components/room/RoomJoinModal';
+import { ShareCodeDisplay } from '@/components/room/ShareCodeDisplay';
+import AuthHeader from '@/components/AuthHeader';
+import Logo from '@/components/Logo';
 
 interface ScheduleState {
   games: MlbScheduleGame[];
@@ -15,12 +23,34 @@ interface ScheduleState {
 }
 
 export default function GamesPage() {
+  const router = useRouter();
+  const supabase = createClient();
+  const [user, setUser] = useState<User | null>(null);
   const [schedule, setSchedule] = useState<ScheduleState>({
     games: [],
     isLoading: true,
     error: null,
   });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<{ id: string; homeTeam: string; awayTeam: string } | null>(null);
+  const [createdRoomData, setCreatedRoomData] = useState<{ shareCode: string; gameId: string } | null>(null);
 
+  // Check auth status
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
+  // Fetch schedule
   useEffect(() => {
     let isMounted = true;
 
@@ -52,6 +82,42 @@ export default function GamesPage() {
     };
   }, []);
 
+  const handleCreateRoom = (game: { id: string; homeTeam: string; awayTeam: string }) => {
+    if (!user) {
+      // Redirect to sign in
+      router.push('/');
+      return;
+    }
+    setSelectedGame(game);
+    setShowCreateModal(true);
+  };
+
+  const handleJoinRoom = () => {
+    if (!user) {
+      // Redirect to sign in
+      router.push('/');
+      return;
+    }
+    setShowJoinModal(true);
+  };
+
+  const handleCreateSuccess = (roomId: string, shareCode: string, gameId: string) => {
+    setShowCreateModal(false);
+    setCreatedRoomData({ shareCode, gameId });
+    setShowSuccessModal(true);
+  };
+
+  const handleJoinSuccess = (gameId: string) => {
+    setShowJoinModal(false);
+    router.push(`/games/${gameId}`);
+  };
+
+  const handleGoToRoom = () => {
+    if (createdRoomData) {
+      router.push(`/games/${createdRoomData.gameId}`);
+    }
+  };
+
   const now = new Date();
   const currentTime = now.toLocaleTimeString('en-US', {
     ...UI_CONFIG.DATE_FORMAT.TIME,
@@ -64,7 +130,13 @@ export default function GamesPage() {
   });
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen p-8 relative">
+      {/* Logo - Top Left */}
+      <Logo />
+
+      {/* Auth Header - Top Right */}
+      <AuthHeader />
+
       <div className="max-w-5xl mx-auto space-y-10">
         {/* Header */}
         <div>
@@ -119,7 +191,18 @@ export default function GamesPage() {
                 <Radio className="w-5 h-5 text-green-500" /> Today's MLB Schedule
               </h2>
             </div>
-            <span className="text-xs text-slate-500 dark:text-slate-500">Source: MLB Stats API</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 dark:text-slate-500">Source: MLB Stats API</span>
+              {user && (
+                <button
+                  onClick={handleJoinRoom}
+                  className="px-4 py-2 text-sm font-medium bg-white dark:bg-slate-800 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center gap-2"
+                >
+                  <Key className="w-4 h-4" />
+                  Join Watch Party
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -146,11 +229,8 @@ export default function GamesPage() {
                 key={game.id}
                 className="card-elevated border border-slate-200 dark:border-slate-700 hover:border-blue-500 transition"
               >
-                <Link
-                  href={`/games/${game.id}`}
-                  className="block p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl"
-                >
-                  <div className="flex items-center justify-between">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                         {game.awayTeam} <span className="text-slate-400">@</span> {game.homeTeam}
@@ -161,10 +241,26 @@ export default function GamesPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{game.startTime}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Open Watch Room</p>
                     </div>
                   </div>
-                </Link>
+
+                  <div className="flex gap-2">
+                    <Link href={`/games/${game.id}`} className="flex-1">
+                      <button className="w-full px-3 py-2 text-sm font-medium border-2 border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                        Try Demo Mode
+                      </button>
+                    </Link>
+                    {user && (
+                      <button
+                        onClick={() => handleCreateRoom({ id: game.id, homeTeam: game.homeTeam, awayTeam: game.awayTeam })}
+                        className="flex-1 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Users className="w-4 h-4" />
+                        Create Watch Party
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <div className="flex justify-end border-t border-slate-100 dark:border-slate-700/80 px-4 py-2">
                   <a
                     href={`https://www.mlb.com/gameday/${game.gamePk}`}
@@ -197,6 +293,47 @@ export default function GamesPage() {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      {showCreateModal && selectedGame && (
+        <RoomCreateModal
+          gameId={selectedGame.id}
+          homeTeam={selectedGame.homeTeam}
+          awayTeam={selectedGame.awayTeam}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
+
+      {showJoinModal && (
+        <RoomJoinModal
+          onClose={() => setShowJoinModal(false)}
+          onSuccess={handleJoinSuccess}
+        />
+      )}
+
+      {showSuccessModal && createdRoomData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">
+              🎉 Watch Party Created!
+            </h2>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              Share this code with your friends so they can join:
+            </p>
+            <ShareCodeDisplay
+              shareCode={createdRoomData.shareCode}
+              compact={false}
+            />
+            <button
+              onClick={handleGoToRoom}
+              className="w-full mt-6 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
+            >
+              Enter Watch Room
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

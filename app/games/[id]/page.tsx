@@ -12,6 +12,8 @@ import { MESSAGE_CONSTRAINTS, UI_CONFIG, STORAGE_KEYS } from '@/lib/constants';
 import type { MlbScheduleGame } from '@/lib/services/mlbSchedule';
 import type { MlbGameState } from '@/lib/services/mlbGameState';
 import { Calendar, Clock, MessageSquare, Target, MapPin, Package, ExternalLink, Lightbulb, RefreshCw } from 'lucide-react';
+import AuthHeader from '@/components/AuthHeader';
+import Logo from '@/components/Logo';
 
 export default function GameRoomPage() {
   const params = useParams();
@@ -247,9 +249,15 @@ export default function GameRoomPage() {
   const hiddenCount = messages.length - visibleMessages.length;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 relative">
+      {/* Logo - Top Left */}
+      <Logo />
+
+      {/* Auth Header - Top Right */}
+      <AuthHeader />
+
       {/* Header */}
-      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-b-2 border-slate-200 dark:border-slate-700 sticky top-0 z-50 shadow-sm">
+      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-b-2 border-slate-200 dark:border-slate-700 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <Link href="/games" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-3 font-medium group">
             <span className="transform group-hover:-translate-x-1 transition-transform">←</span>
