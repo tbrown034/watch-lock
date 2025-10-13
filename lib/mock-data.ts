@@ -5,6 +5,8 @@ export interface MockGame {
   homeTeam: string;
   awayTeam: string;
   startTime: string;
+  status?: string;
+  detailedState?: string;
 }
 
 export interface MockMessage {
@@ -20,7 +22,9 @@ export const mockGames: MockGame[] = [
     id: 'game-1',
     homeTeam: 'Cardinals',
     awayTeam: 'Cubs',
-    startTime: '6:15 PM'
+    startTime: '6:15 PM',
+    status: 'Live',
+    detailedState: 'Top 5th'
   },
   {
     id: 'game-2',
@@ -28,18 +32,7 @@ export const mockGames: MockGame[] = [
     awayTeam: 'Red Sox',
     startTime: '7:10 PM'
   },
-  {
-    id: 'game-3',
-    homeTeam: 'Dodgers',
-    awayTeam: 'Giants',
-    startTime: '9:40 PM'
-  },
-  {
-    id: 'game-4',
-    homeTeam: 'Astros',
-    awayTeam: 'Rangers',
-    startTime: '5:30 PM'
-  }
+
 ];
 
 // Messages are stored per game - in MVP, starts empty

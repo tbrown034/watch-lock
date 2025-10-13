@@ -53,7 +53,7 @@ export const GameStateCard = memo(function GameStateCard({
   statusMessage
 }: GameStateCardProps) {
   return (
-    <div className="card-elevated p-6">
+    <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 shadow-lg p-6">
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Live Sync</p>

@@ -6,14 +6,13 @@ import { useParams } from 'next/navigation';
 import { ProgressSliderWithMarkers } from '@/components/game/ProgressSliderWithMarkers';
 import { MessageCard } from '@/components/game/MessageCard';
 import { GameStateCard } from '@/components/game/GameStateCard';
+import { HowItWorks } from '@/components/game/HowItWorks';
 import { mockGames, MockMessage } from '@/lib/mock-data';
 import { MlbMeta, encodeMlbPosition, formatMlbPositionWithTeams } from '@/lib/position';
 import { MESSAGE_CONSTRAINTS, UI_CONFIG, STORAGE_KEYS } from '@/lib/constants';
 import type { MlbScheduleGame } from '@/lib/services/mlbSchedule';
 import type { MlbGameState } from '@/lib/services/mlbGameState';
-import { Calendar, Clock, MessageSquare, Target, MapPin, Package, ExternalLink, Lightbulb, RefreshCw } from 'lucide-react';
-import AuthHeader from '@/components/AuthHeader';
-import Logo from '@/components/Logo';
+import { Calendar, Clock, MessageSquare, MapPin, Package, ExternalLink, RefreshCw } from 'lucide-react';
 
 export default function GameRoomPage() {
   const params = useParams();
@@ -249,32 +248,26 @@ export default function GameRoomPage() {
   const hiddenCount = messages.length - visibleMessages.length;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 relative">
-      {/* Logo - Top Left */}
-      <Logo />
-
-      {/* Auth Header - Top Right */}
-      <AuthHeader />
-
+    <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 relative">
       {/* Header */}
-      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-b-2 border-slate-200 dark:border-slate-700 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <Link href="/games" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-3 font-medium group">
-            <span className="transform group-hover:-translate-x-1 transition-transform">←</span>
+      <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-sm shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+        <div className="mx-auto max-w-7xl px-6 py-4">
+          <Link href="/games" className="mb-3 inline-flex items-center gap-2 font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 group">
+            <span className="transform transition-transform group-hover:-translate-x-1" aria-hidden="true">←</span>
             <span>Back to Games</span>
           </Link>
           <div>
-            <h1 className="text-4xl font-black mb-1 text-slate-800 dark:text-slate-100">
+            <h1 className="mb-1 text-4xl font-black text-slate-900 dark:text-slate-100">
               {awayTeam} <span className="text-blue-600">@</span> {homeTeam}
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+            <p className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
               <span className="flex items-center gap-1.5">
-                <Calendar className="w-4 h-4" aria-hidden="true" />
+                <Calendar className="h-4 w-4" aria-hidden="true" />
                 {today}
               </span>
               <span>•</span>
               <span className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4" aria-hidden="true" />
+                <Clock className="h-4 w-4" aria-hidden="true" />
                 {startTimeLabel}
               </span>
             </p>
@@ -286,7 +279,7 @@ export default function GameRoomPage() {
                 className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
               >
                 View matchup preview
-                <ExternalLink className="w-4 h-4" aria-hidden="true" />
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
               </a>
             )}
           </div>
@@ -294,47 +287,18 @@ export default function GameRoomPage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
-        {/* How it works - Top of page */}
-        <div className="mb-6 card-elevated p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-          <h4 className="font-bold mb-3 text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <Target className="w-5 h-5 text-blue-600" />
-            <span>How it works</span>
-          </h4>
-          <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-2">
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 font-bold">1.</span>
-              <span>Set where you are in the game using the controls below</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 font-bold">2.</span>
-              <span><strong>Important:</strong> After a big play happens, advance to the next position <em>before</em> commenting on it (e.g., advance from 1 out to 2 outs after seeing a home run)</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 font-bold">3.</span>
-              <span>Messages are locked to your current position - only friends at that position or later will see them</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 font-bold">4.</span>
-              <span>Green markers on the timeline show where messages exist (no spoilers guaranteed)</span>
-            </li>
-          </ul>
-        </div>
-        {isLiveGame && (
-          <div className={`mb-6 rounded-xl border px-4 py-3 text-sm ${
-            scheduleError
-              ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300'
-              : 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200'
-          }`}>
-            {scheduleError
-              ? scheduleError
-              : 'Live data synced from the MLB Stats API. Refresh the page to pull the latest inning if you move ahead IRL.'}
+        <HowItWorks />
+
+        {isLiveGame && scheduleError && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+            {scheduleError}
           </div>
         )}
 
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Left Column - Progress Control */}
           <div className="space-y-6">
-            <div className="card-elevated p-4 flex flex-col gap-2">
+            <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                   {isLiveGame ? 'Live position' : 'Quick sync'}
@@ -342,8 +306,8 @@ export default function GameRoomPage() {
                 <button
                   onClick={syncWithLivePosition}
                   disabled={isSyncing}
-                  className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white ${
-                    isSyncing ? 'bg-blue-400 cursor-wait' : 'bg-blue-600 hover:bg-blue-700'
+                  className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-200 shadow-sm hover:shadow-md text-sm inline-flex items-center gap-2 ${
+                    isSyncing ? 'opacity-70 cursor-wait' : ''
                   }`}
                 >
                   <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -356,15 +320,52 @@ export default function GameRoomPage() {
               <div className="flex flex-wrap gap-2 pt-1">
                 <button
                   onClick={handleResetProgress}
-                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800/60 hover:bg-slate-300 dark:hover:bg-slate-700/80 text-slate-800 dark:text-slate-200 font-medium rounded-xl transition-all duration-200 text-xs"
                 >
                   Reset progress
                 </button>
                 <button
                   onClick={handleClearMessages}
-                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800/60 hover:bg-slate-300 dark:hover:bg-slate-700/80 text-slate-800 dark:text-slate-200 font-medium rounded-xl transition-all duration-200 text-xs"
                 >
                   Clear messages
+                </button>
+              </div>
+            </div>
+
+            {/* Message Input */}
+            <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <MessageSquare className="w-5 h-5 text-blue-500" />
+                <h3 className="text-xl font-semibold text-slate-200">Leave a Message</h3>
+              </div>
+              <div className="mb-4">
+                <div className="p-3 bg-blue-500/10 dark:bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    Posting at: <span className="font-semibold text-blue-600 dark:text-blue-400">{formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}</span>
+                  </p>
+                </div>
+              </div>
+              <textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Tip: Skim ahead on the slider before reacting—everyone behind you stays spoiler-safe. (Press Enter to send)"
+                className="w-full px-4 py-3 bg-white dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700/60 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 resize-none text-base"
+                rows={3}
+                maxLength={MESSAGE_CONSTRAINTS.MAX_LENGTH}
+                aria-label="Message content"
+              />
+              <div className="flex items-center justify-between mt-3">
+                <span className={`text-sm font-medium ${newMessage.length > MESSAGE_CONSTRAINTS.WARNING_THRESHOLD ? 'text-orange-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                  {newMessage.length}/{MESSAGE_CONSTRAINTS.MAX_LENGTH}
+                </span>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Post Message
                 </button>
               </div>
             </div>
@@ -390,73 +391,30 @@ export default function GameRoomPage() {
               />
             )}
 
-            {/* Message Input */}
-            <div className="card-elevated p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <MessageSquare className="w-5 h-5 text-blue-600" />
-                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Leave a Message</h3>
-              </div>
-              <div className="mb-3 space-y-2">
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
-                    Posting at: <span className="font-bold text-blue-600 dark:text-blue-400 text-base">{formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}</span>
-                  </p>
-                </div>
-              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-900/40">
-                <p className="text-xs text-blue-700 dark:text-blue-200 flex items-start gap-1.5">
-                  <Lightbulb className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                  <span><strong>Tip:</strong> Skim ahead on the slider before reacting to a moment—everyone behind you stays spoiler-safe.</span>
-                </p>
-              </div>
-              </div>
-              <textarea
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="That was INCREDIBLE! (Press Enter to send, Shift+Enter for new line)"
-                className="w-full px-4 py-3 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100 resize-none transition-all text-base"
-                rows={3}
-                maxLength={MESSAGE_CONSTRAINTS.MAX_LENGTH}
-                aria-label="Message content"
-              />
-              <div className="flex items-center justify-between mt-3">
-                <span className={`text-sm font-medium ${newMessage.length > MESSAGE_CONSTRAINTS.WARNING_THRESHOLD ? 'text-orange-600' : 'text-slate-500'}`}>
-                  {newMessage.length}/{MESSAGE_CONSTRAINTS.MAX_LENGTH}
-                </span>
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
-                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-40 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100 transition-all shadow-md hover:shadow-lg"
-                >
-                  Post Message
-                </button>
-              </div>
-            </div>
-
           </div>
 
           {/* Right Column - Messages Feed */}
-          <div className="card-elevated overflow-hidden flex flex-col max-h-[800px]">
-            <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700">
-              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1">Messages</h3>
+          <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 overflow-hidden flex flex-col max-h-[800px]">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-700/50">
+              <h3 className="text-xl font-semibold text-slate-200 mb-1">Messages</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                <span>Showing up to <span className="font-bold text-blue-600 dark:text-blue-400">{formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}</span></span>
+                <span>Showing up to <span className="font-semibold text-blue-500">{formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}</span></span>
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-900/50 dark:to-slate-800">
+            <div className="flex-1 overflow-y-auto p-5">
               {hiddenCount > 0 && (
                 <div
                   role="status"
                   aria-live="polite"
-                  className="mb-5 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-xl border-2 border-yellow-200 dark:border-yellow-800 text-center"
+                  className="mb-5 p-4 bg-yellow-500/10 dark:bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-center"
                 >
-                  <p className="text-base text-yellow-800 dark:text-yellow-300 font-bold mb-1 flex items-center justify-center gap-2">
+                  <p className="text-base text-yellow-700 dark:text-yellow-300 font-semibold mb-1 flex items-center justify-center gap-2">
                     <Package className="w-5 h-5" aria-hidden="true" />
                     <span>{hiddenCount} message{hiddenCount > 1 ? 's' : ''} waiting ahead</span>
                   </p>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400">
                     Move your progress forward to unlock them
                   </p>
                 </div>
@@ -491,6 +449,6 @@ export default function GameRoomPage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

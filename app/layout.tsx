@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import AppHeader from '@/components/AppHeader';
+import AppFooter from '@/components/AppFooter';
 
 const inter = Inter({ subsets: ['latin'] });
 const siteName = 'WatchLock';
@@ -71,7 +73,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <div className="flex flex-col min-h-screen">
+          <AppHeader />
+          <main className="flex-1">
+            {children}
+          </main>
+          <AppFooter />
+        </div>
+      </body>
     </html>
   );
 }

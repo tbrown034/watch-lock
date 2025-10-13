@@ -7,6 +7,13 @@ export interface MlbScheduleGame {
   awayTeam: string;
   startTime: string;
   venue?: string;
+  status?: string;
+  detailedState?: string;
+  score?: {
+    home: number;
+    away: number;
+  };
+  inning?: string;
 }
 
 interface MlbScheduleResponse {
@@ -16,9 +23,23 @@ interface MlbScheduleResponse {
       gamePk: number;
       gameDate: string;
       venue?: { name?: string };
+      status?: {
+        abstractGameState?: string;
+        detailedState?: string;
+      };
       teams: {
-        home: { team: { name: string } };
-        away: { team: { name: string } };
+        home: {
+          team: { name: string };
+          score?: number;
+        };
+        away: {
+          team: { name: string };
+          score?: number;
+        };
+      };
+      linescore?: {
+        currentInningOrdinal?: string;
+        inningState?: string;
       };
     }>;
   }>;
@@ -69,12 +90,27 @@ export async function fetchTodayMlbGames(timezone: string = UI_CONFIG.TIMEZONE):
   const data = (await response.json()) as MlbScheduleResponse;
   const games = data?.dates?.[0]?.games ?? [];
 
-  return games.map((game) => ({
-    id: `mlb-${game.gamePk}`,
-    gamePk: game.gamePk,
-    homeTeam: game.teams.home.team.name,
-    awayTeam: game.teams.away.team.name,
-    startTime: formatStartTime(game.gameDate, timezone),
-    venue: game.venue?.name,
-  }));
+  return games.map((game) => {
+    const isLive = game.status?.abstractGameState === 'Live';
+    const score = isLive && game.teams.home.score !== undefined && game.teams.away.score !== undefined
+      ? { home: game.teams.home.score, away: game.teams.away.score }
+      : undefined;
+
+    const inning = isLive && game.linescore?.inningState && game.linescore?.currentInningOrdinal
+      ? `${game.linescore.inningState} ${game.linescore.currentInningOrdinal}`
+      : undefined;
+
+    return {
+      id: `mlb-${game.gamePk}`,
+      gamePk: game.gamePk,
+      homeTeam: game.teams.home.team.name,
+      awayTeam: game.teams.away.team.name,
+      startTime: formatStartTime(game.gameDate, timezone),
+      venue: game.venue?.name,
+      status: game.status?.abstractGameState,
+      detailedState: game.status?.detailedState,
+      score,
+      inning,
+    };
+  });
 }

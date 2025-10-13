@@ -1,40 +1,74 @@
-import { Clock } from 'lucide-react';
-import { UI_CONFIG } from '@/lib/constants';
-
 interface GameCardProps {
   game: {
     id: string;
     homeTeam: string;
     awayTeam: string;
     startTime: string;
+    status?: string;
+    detailedState?: string;
+    venue?: string;
+    score?: {
+      home: number;
+      away: number;
+    };
+    inning?: string;
   };
+  variant?: 'live' | 'demo';
 }
 
-export function GameCard({ game }: GameCardProps) {
+export function GameCard({ game, variant = 'demo' }: GameCardProps) {
+  const isLive = game.status === 'Live';
+  const isFinal = game.status === 'Final';
+  const isInProgress = game.status === 'In Progress';
+
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex-1">
-        <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-          {game.awayTeam} <span className="text-slate-400">@</span> {game.homeTeam}
-        </h2>
-        <p className="text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-          <Clock className="w-4 h-4" aria-hidden="true" />
-          <span>
-            Scheduled:{' '}
-            <span className="font-semibold">
-              {game.startTime} {UI_CONFIG.TIMEZONE.split('/').pop()}
+    <div className="flex items-center justify-between gap-4">
+      {/* Teams */}
+      <div className="flex-1 space-y-1">
+        <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          {game.awayTeam} @ {game.homeTeam}
+        </div>
+
+        {/* Score or Time */}
+        {(isLive || isInProgress) && game.score ? (
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+              {game.score.away} - {game.score.home}
             </span>
-          </span>
-        </p>
+            {game.inning && (
+              <span className="text-xs text-slate-600 dark:text-slate-400">
+                {game.inning}
+              </span>
+            )}
+          </div>
+        ) : isFinal && game.score ? (
+          <div className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+            {game.score.away} - {game.score.home}
+          </div>
+        ) : (
+          <div className="text-sm text-slate-600 dark:text-slate-400">
+            {game.startTime}
+          </div>
+        )}
       </div>
-      <div className="flex flex-col items-end gap-2">
-        <span className="text-blue-600 dark:text-blue-400 font-bold text-lg group-hover:gap-3 flex items-center gap-2 transition-all">
-          <span>Join Game</span>
-          <span className="transform group-hover:translate-x-1 transition-transform text-2xl" aria-hidden="true">→</span>
-        </span>
-        <span className="text-xs text-slate-500 dark:text-slate-400">
-          Share your reactions
-        </span>
+
+      {/* Status */}
+      <div className="text-right">
+        {isLive && (
+          <span className="text-xs font-medium text-green-600 dark:text-green-400">
+            LIVE
+          </span>
+        )}
+        {isInProgress && (
+          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+            IN PROGRESS
+          </span>
+        )}
+        {isFinal && (
+          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+            FINAL
+          </span>
+        )}
       </div>
     </div>
   );

@@ -6,8 +6,6 @@ import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { ArrowLeft, Calendar, Clock, Mail, User as UserIcon, LogOut } from 'lucide-react';
 import Link from 'next/link';
-import AuthHeader from '@/components/AuthHeader';
-import Logo from '@/components/Logo';
 
 interface Profile {
   id: string;
@@ -98,96 +96,74 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen p-8 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 relative">
-      {/* Logo - Top Left */}
-      <Logo />
-
-      {/* Auth Header - Top Right */}
-      <AuthHeader />
-
-      <div className="max-w-3xl mx-auto">
+    <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="max-w-2xl mx-auto">
         {/* Back Button */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 mb-6 transition-colors"
+          className="inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 mb-6 text-sm font-medium group transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Home</span>
+          <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
+          <span>Home</span>
         </Link>
 
         {/* Profile Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 border-2 border-slate-900 dark:border-slate-100">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-8 text-white">
+          <div className="border-b-2 border-slate-900 dark:border-slate-100 p-6">
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center">
-                <UserIcon className="w-10 h-10" />
+              <div className="w-16 h-16 bg-slate-900 dark:bg-slate-100 flex items-center justify-center">
+                <UserIcon className="w-8 h-8 text-white dark:text-slate-900" strokeWidth={2.5} />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                   {profile.display_name || user.user_metadata?.full_name || profile.username}
                 </h1>
-                <p className="text-blue-100">{user.email}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{user.email}</p>
               </div>
             </div>
           </div>
 
           {/* Stats Section */}
-          <div className="p-8 space-y-6">
-            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">
-              Account Information
+          <div className="p-6 space-y-4">
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider mb-3">
+              Account Info
             </h2>
 
-            <div className="space-y-4">
-              {/* Email */}
-              <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 border-l-4 border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-900">
+                <Mail className="w-4 h-4 text-slate-900 dark:text-slate-100 mt-0.5" strokeWidth={2.5} />
                 <div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">Email</div>
-                  <div className="text-slate-800 dark:text-slate-100 font-medium">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Email</div>
+                  <div className="text-sm text-slate-900 dark:text-slate-100 font-medium">
                     {user.email}
                   </div>
                 </div>
               </div>
 
-              {/* Account Created */}
-              <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                <Calendar className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 border-l-4 border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-900">
+                <Calendar className="w-4 h-4 text-slate-900 dark:text-slate-100 mt-0.5" strokeWidth={2.5} />
                 <div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">Member Since</div>
-                  <div className="text-slate-800 dark:text-slate-100 font-medium">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Member Since</div>
+                  <div className="text-sm text-slate-900 dark:text-slate-100 font-medium">
                     {formatDate(profile.created_at)}
                   </div>
                 </div>
               </div>
-
-              {/* Last Visited */}
-              {profile.last_visited && (
-                <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                  <Clock className="w-5 h-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <div className="text-sm text-slate-500 dark:text-slate-400">Last Visited</div>
-                    <div className="text-slate-800 dark:text-slate-100 font-medium">
-                      {formatDateTime(profile.last_visited)}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Actions */}
-            <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
+            <div className="pt-4 border-t-2 border-slate-900 dark:border-slate-100">
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold transition-colors"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-4 h-4" strokeWidth={2.5} />
                 <span>Sign Out</span>
               </button>
             </div>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
