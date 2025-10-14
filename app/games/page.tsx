@@ -80,21 +80,11 @@ export default function GamesPage() {
   }, []);
 
   const handleCreateRoom = (game: { id: string; homeTeam: string; awayTeam: string }) => {
-    if (!user) {
-      // Redirect to sign in
-      router.push('/');
-      return;
-    }
     setSelectedGame(game);
     setShowCreateModal(true);
   };
 
   const handleJoinRoom = () => {
-    if (!user) {
-      // Redirect to sign in
-      router.push('/');
-      return;
-    }
     setShowJoinModal(true);
   };
 

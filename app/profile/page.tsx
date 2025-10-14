@@ -85,8 +85,11 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-slate-500">Loading profile...</div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <p className="text-sm uppercase tracking-wide text-slate-500">Loading</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Loading profile...</h1>
+        </div>
       </div>
     );
   }
@@ -96,55 +99,56 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="px-4 py-8 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        {/* Back Button */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 mb-6 text-sm font-medium group transition-colors"
-        >
-          <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
-          <span>Home</span>
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="px-4 py-8 sm:px-6 lg:px-8">
+        <div className="max-w-2xl mx-auto">
+          {/* Back Button */}
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mb-6 text-sm font-medium group transition-colors"
+          >
+            <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
+            <span>Home</span>
+          </Link>
 
-        {/* Profile Card */}
-        <div className="bg-white dark:bg-slate-800 border-2 border-slate-900 dark:border-slate-100">
-          {/* Header Section */}
-          <div className="border-b-2 border-slate-900 dark:border-slate-100 p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-slate-900 dark:bg-slate-100 flex items-center justify-center">
-                <UserIcon className="w-8 h-8 text-white dark:text-slate-900" strokeWidth={2.5} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {profile.display_name || user.user_metadata?.full_name || profile.username}
-                </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400">{user.email}</p>
+          {/* Profile Card */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+            {/* Header Section */}
+            <div className="border-b border-slate-200 dark:border-slate-700 p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
+                  <UserIcon className="w-8 h-8 text-white" strokeWidth={2} />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    {profile.display_name || user.user_metadata?.full_name || profile.username}
+                  </h1>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{user.email}</p>
+                </div>
               </div>
             </div>
-          </div>
 
           {/* Stats Section */}
           <div className="p-6 space-y-4">
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider mb-3">
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-4">
               Account Info
             </h2>
 
             <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 border-l-4 border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-900">
-                <Mail className="w-4 h-4 text-slate-900 dark:text-slate-100 mt-0.5" strokeWidth={2.5} />
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Email</div>
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700">
+                <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" strokeWidth={2} />
+                <div className="flex-1">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Email</div>
                   <div className="text-sm text-slate-900 dark:text-slate-100 font-medium">
                     {user.email}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3 border-l-4 border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-900">
-                <Calendar className="w-4 h-4 text-slate-900 dark:text-slate-100 mt-0.5" strokeWidth={2.5} />
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Member Since</div>
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700">
+                <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" strokeWidth={2} />
+                <div className="flex-1">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Member Since</div>
                   <div className="text-sm text-slate-900 dark:text-slate-100 font-medium">
                     {formatDate(profile.created_at)}
                   </div>
@@ -152,17 +156,18 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="pt-4 border-t-2 border-slate-900 dark:border-slate-100">
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg transition-all text-sm font-medium"
               >
-                <LogOut className="w-4 h-4" strokeWidth={2.5} />
+                <LogOut className="w-4 h-4" strokeWidth={2} />
                 <span>Sign Out</span>
               </button>
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

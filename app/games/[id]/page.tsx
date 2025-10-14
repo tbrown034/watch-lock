@@ -13,6 +13,7 @@ import { MlbMeta, encodeMlbPosition, formatMlbPositionWithTeams } from '@/lib/po
 import { MESSAGE_CONSTRAINTS, UI_CONFIG, STORAGE_KEYS } from '@/lib/constants';
 import type { MlbScheduleGame } from '@/lib/services/mlbSchedule';
 import type { MlbGameState } from '@/lib/services/mlbGameState';
+import { getTeamAbbreviation } from '@/lib/mlb-teams';
 import { Calendar, Clock, MessageSquare, Package, ExternalLink, RefreshCw, ChevronDown, ChevronUp, RotateCcw, Send } from 'lucide-react';
 
 export default function GameRoomPage() {
@@ -260,9 +261,9 @@ export default function GameRoomPage() {
 
   const hiddenCount = messages.length - visibleMessages.length;
 
-  // Get team abbreviations (first 3 letters)
-  const awayAbbr = awayTeam.split(' ').pop()?.slice(0, 3).toUpperCase() || 'AWY';
-  const homeAbbr = homeTeam.split(' ').pop()?.slice(0, 3).toUpperCase() || 'HOM';
+  // Get team abbreviations using proper MLB codes
+  const awayAbbr = getTeamAbbreviation(awayTeam);
+  const homeAbbr = getTeamAbbreviation(homeTeam);
 
   // Determine user's position text
   const userPositionText = `Your position: ${formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}`;
@@ -421,19 +422,19 @@ export default function GameRoomPage() {
 
         {/* 3. Messages Component */}
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between mb-3">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-2">
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-blue-500" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <MessageSquare className="w-4 h-4 text-blue-500" />
                   Messages
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Showing up to {formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}
                 </p>
               </div>
               {messages.length > 0 && (
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
                   {visibleMessages.length}/{messages.length}
                 </span>
               )}
@@ -453,24 +454,24 @@ export default function GameRoomPage() {
 
           {/* Hidden Messages Alert */}
           {hiddenCount > 0 && (
-            <div className="mx-5 mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <p className="text-sm text-yellow-700 dark:text-yellow-300 font-medium flex items-center gap-2">
-                <Package className="w-4 h-4" />
+            <div className="mx-4 mt-3 p-2.5 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <p className="text-xs text-yellow-700 dark:text-yellow-300 font-medium flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5" />
                 {hiddenCount} message{hiddenCount > 1 ? 's' : ''} waiting ahead
               </p>
-              <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+              <p className="text-[10px] text-yellow-600 dark:text-yellow-400 mt-0.5">
                 Move your position forward to unlock
               </p>
             </div>
           )}
 
           {/* Message Feed */}
-          <div className="p-5 max-h-[500px] overflow-y-auto space-y-3">
+          <div className="p-4 max-h-[500px] overflow-y-auto space-y-2">
             {visibleMessages.length === 0 ? (
-              <div className="text-center py-12">
-                <MessageSquare className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3 opacity-50" />
+              <div className="text-center py-8">
+                <MessageSquare className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2 opacity-50" />
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No messages yet</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Be the first to leave one!</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Be the first to leave one!</p>
               </div>
             ) : (
               visibleMessages.map((message) => (
@@ -490,38 +491,43 @@ export default function GameRoomPage() {
           </div>
 
           {/* Message Composer */}
-          <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-            <div className="mb-2">
-              <p className="text-xs text-slate-600 dark:text-slate-400">
+          <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+            <div className="mb-1.5">
+              <p className="text-[10px] text-slate-600 dark:text-slate-400">
                 Posting at: <span className="font-semibold text-blue-600 dark:text-blue-400">{formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}</span>
               </p>
             </div>
             <div className="flex gap-2">
-              <textarea
+              <input
+                type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
                 placeholder="Leave a message... (Enter to send)"
-                className="flex-1 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 resize-none text-sm"
-                rows={2}
+                className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 text-sm"
                 maxLength={MESSAGE_CONSTRAINTS.MAX_LENGTH}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim()}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 self-end"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
-                <Send className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">Send</span>
+                <Send className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-xs font-medium">Send</span>
               </button>
             </div>
-            <div className="flex items-center justify-between mt-2">
-              <span className={`text-xs font-medium ${newMessage.length > MESSAGE_CONSTRAINTS.WARNING_THRESHOLD ? 'text-orange-500' : 'text-slate-400 dark:text-slate-500'}`}>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className={`text-[10px] font-medium ${newMessage.length > MESSAGE_CONSTRAINTS.WARNING_THRESHOLD ? 'text-orange-500' : 'text-slate-400 dark:text-slate-500'}`}>
                 {newMessage.length}/{MESSAGE_CONSTRAINTS.MAX_LENGTH}
               </span>
               <button
                 onClick={handleClearMessages}
-                className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                className="text-[10px] text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               >
                 Clear all
               </button>

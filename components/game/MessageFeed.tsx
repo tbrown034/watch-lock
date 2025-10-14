@@ -51,9 +51,9 @@ export function MessageFeed({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
+    <div className="flex-1 overflow-y-auto p-3">
       {hiddenCount > 0 && (
-        <div className="text-center py-4 mb-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+        <div className="text-center py-3 mb-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
           <p className="text-sm text-yellow-600 dark:text-yellow-400">
             📦 {hiddenCount} message{hiddenCount > 1 ? 's' : ''} waiting ahead
           </p>
@@ -63,7 +63,7 @@ export function MessageFeed({
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {messages.map((message) => (
           <MessageCard
             key={message.id}

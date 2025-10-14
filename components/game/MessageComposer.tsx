@@ -32,9 +32,9 @@ export function MessageComposer({ currentPosition, onSend, disabled = false }: M
   };
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900">
+    <div className="border-t border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-gray-900">
       <form onSubmit={handleSubmit} className="space-y-2">
-        <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+        <div className="text-[10px] text-gray-500 dark:text-gray-400">
           Posting at: {formatMlbPosition(currentPosition)}
         </div>
         <div className="flex space-x-2">
@@ -44,7 +44,7 @@ export function MessageComposer({ currentPosition, onSend, disabled = false }: M
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Share your reaction..."
             disabled={disabled || isSending}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+            className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
                      bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                      focus:outline-none focus:ring-2 focus:ring-blue-500
                      disabled:opacity-50 disabled:cursor-not-allowed"
@@ -53,14 +53,14 @@ export function MessageComposer({ currentPosition, onSend, disabled = false }: M
           <button
             type="submit"
             disabled={!message.trim() || isSending || disabled}
-            className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg
+            className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg
                      hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500
                      disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             {isSending ? 'Sending...' : 'Send'}
           </button>
         </div>
-        <div className="text-xs text-gray-400 dark:text-gray-500 text-right">
+        <div className="text-[10px] text-gray-400 dark:text-gray-500 text-right">
           {message.length}/280
         </div>
       </form>

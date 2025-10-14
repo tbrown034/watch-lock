@@ -103,18 +103,18 @@ export function SimpleProgressSlider({
   }, []);
 
   return (
-    <div className="w-full">
+    <div className="w-full py-2">
       <div className="relative">
         <div
           ref={trackRef}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          className="relative h-3 w-full cursor-pointer select-none rounded-full bg-slate-200 dark:bg-slate-700"
+          className="relative h-4 w-full cursor-pointer select-none rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
         >
           {/* Progress */}
           <div
-            className="bg-blue-600 h-3 rounded-full transition-all duration-150"
+            className="bg-blue-600 h-4 rounded-full transition-all duration-150"
             style={{ width: `${progressPercent}%` }}
           />
 
@@ -125,7 +125,7 @@ export function SimpleProgressSlider({
               className="absolute top-0 transform -translate-x-1/2"
               style={{ left: `${marker.percent}%` }}
             >
-              <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[8px] border-t-green-500 transform translate-y-[-14px]"></div>
+              <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[9px] border-t-green-500 transform translate-y-[-16px]"></div>
             </div>
           ))}
 
@@ -136,14 +136,14 @@ export function SimpleProgressSlider({
               style={{ left: `${livePercent}%` }}
               title="Live position"
             >
-              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-500 border border-white shadow-sm"></div>
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-red-500 border border-white shadow-sm"></div>
             </div>
           )}
 
           {/* Current position marker */}
           <div
-            className="pointer-events-none absolute -top-[3px] h-3 w-3 rounded-full border-2 border-white bg-blue-600 shadow-md z-20"
-            style={{ left: `calc(${progressPercent}% - 6px)` }}
+            className="pointer-events-none absolute -top-[4px] h-5 w-5 rounded-full border-2 border-white bg-blue-600 shadow-lg z-20"
+            style={{ left: `calc(${progressPercent}% - 10px)` }}
           />
         </div>
 
@@ -158,9 +158,9 @@ export function SimpleProgressSlider({
           aria-label="Adjust your progress in the game"
         />
 
-        <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+        <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-2.5">
           <span>Pregame</span>
-          <span>{Math.round(progressPercent)}%</span>
+          <span className="font-medium">{Math.round(progressPercent)}%</span>
           <span>Postgame</span>
         </div>
       </div>
