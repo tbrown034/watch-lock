@@ -9,11 +9,21 @@ import { FieldView } from '@/components/game/FieldView';
 import { MessageCard } from '@/components/game/MessageCard';
 import { HowItWorks } from '@/components/game/HowItWorks';
 import { mockGames, MockMessage } from '@/lib/mock-data';
-import { MlbMeta, encodeMlbPosition, formatMlbPositionWithTeams } from '@/lib/position';
+import {
+  MlbMeta,
+  NflMeta,
+  encodeMlbPosition,
+  encodeNflPosition,
+  formatMlbPositionWithTeams,
+  formatNflPositionWithTeams
+} from '@/lib/position';
 import { MESSAGE_CONSTRAINTS, UI_CONFIG, STORAGE_KEYS } from '@/lib/constants';
 import type { MlbScheduleGame } from '@/lib/services/mlbSchedule';
+import type { NflScheduleGame } from '@/lib/services/nflSchedule';
 import type { MlbGameState } from '@/lib/services/mlbGameState';
-import { getTeamAbbreviation } from '@/lib/mlb-teams';
+import type { NflGameState } from '@/lib/services/nflGameState';
+import { getTeamAbbreviation as getMlbTeamAbbreviation } from '@/lib/mlb-teams';
+import { getTeamAbbreviation as getNflTeamAbbreviation } from '@/lib/nfl-teams';
 import { Calendar, Clock, MessageSquare, Package, ExternalLink, RefreshCw, ChevronDown, ChevronUp, RotateCcw, Send } from 'lucide-react';
 
 export default function GameRoomPage() {
@@ -21,19 +31,37 @@ export default function GameRoomPage() {
   const gameId = params.id as string;
 
   const game = mockGames.find(g => g.id === gameId);
-  const isLiveGame = gameId.startsWith('mlb-');
-  const [liveGame, setLiveGame] = useState<MlbScheduleGame | null>(null);
+
+  // Detect sport from gameId
+  const isNflGame = gameId.startsWith('nfl-');
+  const isMlbGame = gameId.startsWith('mlb-');
+  const isLiveGame = isMlbGame || isNflGame;
+  const sport: 'mlb' | 'nfl' = isNflGame ? 'nfl' : 'mlb';
+
+  const [liveGame, setLiveGame] = useState<MlbScheduleGame | NflScheduleGame | null>(null);
   const [isScheduleLoading, setIsScheduleLoading] = useState(isLiveGame);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   // Initialize state from localStorage
-  const [userPosition, setUserPosition] = useState<MlbMeta>(() => {
+  const [userPosition, setUserPosition] = useState<MlbMeta | NflMeta>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(STORAGE_KEYS.getUserPositionKey(gameId));
       if (stored) {
         return JSON.parse(stored);
       }
     }
+
+    // Return default position based on sport
+    if (isNflGame) {
+      return {
+        sport: 'nfl',
+        quarter: 1,
+        time: '15:00',
+        possession: null,
+        phase: 'PREGAME'
+      };
+    }
+
     return {
       sport: 'mlb',
       inning: 1,
@@ -55,8 +83,8 @@ export default function GameRoomPage() {
 
   const [newMessage, setNewMessage] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [liveState, setLiveState] = useState<MlbGameState | null>(null);
-  const [livePosition, setLivePosition] = useState<MlbMeta | null>(null);
+  const [liveState, setLiveState] = useState<MlbGameState | NflGameState | null>(null);
+  const [livePosition, setLivePosition] = useState<MlbMeta | NflMeta | null>(null);
   const [showGameInfo, setShowGameInfo] = useState(false);
   const [showExactPicker, setShowExactPicker] = useState(false);
   const timezoneAbbr = UI_CONFIG.TIMEZONE.split('/').pop();
@@ -71,7 +99,7 @@ export default function GameRoomPage() {
 
     try {
       const response = await fetch(`/api/games/${gameId}/state`);
-      const data = (await response.json()) as (MlbGameState & { source?: string; status?: string; message?: string; posMeta?: MlbMeta }) | { message?: string; source?: string; status?: string };
+      const data = (await response.json()) as ((MlbGameState | NflGameState) & { source?: string; status?: string; message?: string; posMeta?: MlbMeta | NflMeta }) | { message?: string; source?: string; status?: string };
 
       if (response.ok && 'posMeta' in data && data.posMeta) {
         setLivePosition(data.posMeta);
@@ -89,32 +117,36 @@ export default function GameRoomPage() {
     setIsSyncing(true);
     try {
       const response = await fetch(`/api/games/${gameId}/state`);
-      const data = (await response.json()) as (MlbGameState & { source?: string; status?: string; message?: string }) | { message?: string; source?: string; status?: string };
+      const data = (await response.json()) as ((MlbGameState | NflGameState) & { source?: string; status?: string; message?: string }) | { message?: string; source?: string; status?: string };
 
       if (!response.ok) {
         throw new Error(data?.message || 'Unable to sync live position');
       }
 
       if ('posMeta' in data && data.posMeta) {
-        setUserPosition(data.posMeta as MlbMeta);
-        setLivePosition(data.posMeta as MlbMeta);
+        setUserPosition(data.posMeta as MlbMeta | NflMeta);
+        setLivePosition(data.posMeta as MlbMeta | NflMeta);
       } else if (data.status === 'demo') {
         setUserPosition((prev) => ({ ...prev, phase: 'PREGAME' }));
       } else if ('isFinal' in data && data.isFinal) {
-        setUserPosition((prev) => ({ ...prev, phase: 'POSTGAME', outs: 'END' }));
+        if (sport === 'mlb') {
+          setUserPosition((prev) => ({ ...prev, phase: 'POSTGAME', outs: 'END' } as MlbMeta));
+        } else {
+          setUserPosition((prev) => ({ ...prev, phase: 'POSTGAME' } as NflMeta));
+        }
       }
 
       if (data.source === 'mock' || data.status === 'demo') {
         setLiveState(null);
-      } else if ('score' in data || 'bases' in data || 'matchup' in data || 'lastPlay' in data) {
-        setLiveState(data as MlbGameState);
+      } else if ('score' in data) {
+        setLiveState(data as MlbGameState | NflGameState);
       }
     } catch (error) {
       setLiveState(null);
     } finally {
       setIsSyncing(false);
     }
-  }, [gameId, isLiveGame]);
+  }, [gameId, isLiveGame, sport]);
 
   useEffect(() => {
     if (!isLiveGame) {
@@ -125,12 +157,13 @@ export default function GameRoomPage() {
     async function fetchLiveGame() {
       setIsScheduleLoading(true);
       try {
-        const response = await fetch('/api/games/schedule');
+        const sportParam = sport === 'nfl' ? 'nfl' : 'mlb';
+        const response = await fetch(`/api/games/schedule?sport=${sportParam}`);
         if (!response.ok) {
           throw new Error('Failed to fetch schedule');
         }
         const data = await response.json();
-        const games: MlbScheduleGame[] = data.games ?? [];
+        const games: (MlbScheduleGame | NflScheduleGame)[] = data.games ?? [];
         const match = games.find((g) => g.id === gameId);
         if (isMounted) {
           setLiveGame(match ?? null);
@@ -138,7 +171,7 @@ export default function GameRoomPage() {
         }
       } catch (error) {
         if (isMounted) {
-          setScheduleError('Unable to sync with the MLB schedule at the moment.');
+          setScheduleError(`Unable to sync with the ${sport.toUpperCase()} schedule at the moment.`);
         }
       } finally {
         if (isMounted) {
@@ -152,7 +185,7 @@ export default function GameRoomPage() {
     return () => {
       isMounted = false;
     };
-  }, [gameId, isLiveGame]);
+  }, [gameId, isLiveGame, sport]);
 
   // Fetch live position indicator periodically
   useEffect(() => {
@@ -213,13 +246,21 @@ export default function GameRoomPage() {
   }
 
   const handleResetProgress = () => {
-    const resetMeta: MlbMeta = {
-      sport: 'mlb',
-      inning: 1,
-      half: 'TOP',
-      outs: 0,
-      phase: 'PREGAME'
-    };
+    const resetMeta: MlbMeta | NflMeta = sport === 'nfl'
+      ? {
+          sport: 'nfl',
+          quarter: 1,
+          time: '15:00',
+          possession: null,
+          phase: 'PREGAME'
+        }
+      : {
+          sport: 'mlb',
+          inning: 1,
+          half: 'TOP',
+          outs: 0,
+          phase: 'PREGAME'
+        };
     setUserPosition(resetMeta);
     setLiveState(null);
   };
@@ -253,20 +294,26 @@ export default function GameRoomPage() {
     }
   };
 
-  // Filter messages based on user's current position
-  const userPos = encodeMlbPosition(userPosition);
+  // Filter messages based on user's current position (sport-specific encoding)
+  const encodePosition = (pos: MlbMeta | NflMeta): number => {
+    return pos.sport === 'nfl' ? encodeNflPosition(pos as NflMeta) : encodeMlbPosition(pos as MlbMeta);
+  };
+
+  const userPos = encodePosition(userPosition);
   const visibleMessages = messages.filter(msg =>
-    encodeMlbPosition(msg.position) <= userPos
+    encodePosition(msg.position) <= userPos
   );
 
   const hiddenCount = messages.length - visibleMessages.length;
 
-  // Get team abbreviations using proper MLB codes
+  // Get team abbreviations using sport-specific functions
+  const getTeamAbbreviation = sport === 'nfl' ? getNflTeamAbbreviation : getMlbTeamAbbreviation;
   const awayAbbr = getTeamAbbreviation(awayTeam);
   const homeAbbr = getTeamAbbreviation(homeTeam);
 
-  // Determine user's position text
-  const userPositionText = `Your position: ${formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}`;
+  // Determine user's position text (sport-specific formatting)
+  const formatPositionWithTeams = sport === 'nfl' ? formatNflPositionWithTeams : formatMlbPositionWithTeams;
+  const userPositionText = `Your position: ${formatPositionWithTeams(userPosition as any, awayTeam, homeTeam)}`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -430,7 +477,7 @@ export default function GameRoomPage() {
                   Messages
                 </h3>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Showing up to {formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}
+                  Showing up to {formatPositionWithTeams(userPosition as any, awayTeam, homeTeam)}
                 </p>
               </div>
               {messages.length > 0 && (
@@ -494,7 +541,7 @@ export default function GameRoomPage() {
           <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
             <div className="mb-1.5">
               <p className="text-[10px] text-slate-600 dark:text-slate-400">
-                Posting at: <span className="font-semibold text-blue-600 dark:text-blue-400">{formatMlbPositionWithTeams(userPosition, awayTeam, homeTeam)}</span>
+                Posting at: <span className="font-semibold text-blue-600 dark:text-blue-400">{formatPositionWithTeams(userPosition as any, awayTeam, homeTeam)}</span>
               </p>
             </div>
             <div className="flex gap-2">

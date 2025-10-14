@@ -2,25 +2,30 @@
 
 import {
   MlbMeta,
+  NflMeta,
   encodeMlbPosition,
+  encodeNflPosition,
   decodeMlbPosition,
+  decodeNflPosition,
   MLB_PREGAME_POSITION,
-  MLB_POSTGAME_POSITION
+  MLB_POSTGAME_POSITION,
+  NFL_PREGAME_POSITION,
+  NFL_POSTGAME_POSITION
 } from '@/lib/position';
 import { GAME_CONSTRAINTS } from '@/lib/constants';
 import { MessageSquare } from 'lucide-react';
 import { useCallback, useRef } from 'react';
 
 interface MessageMarker {
-  position: MlbMeta;
+  position: MlbMeta | NflMeta;
   author: string;
 }
 
 interface SimpleProgressSliderProps {
-  position: MlbMeta;
-  onChange: (position: MlbMeta) => void;
+  position: MlbMeta | NflMeta;
+  onChange: (position: MlbMeta | NflMeta) => void;
   messageMarkers?: MessageMarker[];
-  livePosition?: MlbMeta | null;
+  livePosition?: MlbMeta | NflMeta | null;
   maxInning?: number;
 }
 
@@ -34,27 +39,44 @@ export function SimpleProgressSlider({
   const trackRef = useRef<HTMLDivElement>(null);
   const pointerIdRef = useRef<number | null>(null);
 
-  const inGameMaxPos = encodeMlbPosition({ sport: 'mlb', inning: maxInning, half: 'BOTTOM', outs: 'END' });
+  const isNfl = position.sport === 'nfl';
+
+  // Calculate max position based on sport
+  const inGameMaxPos = isNfl
+    ? encodeNflPosition({ sport: 'nfl', quarter: 4, time: '0:00', possession: null })
+    : encodeMlbPosition({ sport: 'mlb', inning: maxInning, half: 'BOTTOM', outs: 'END' });
   const normalizedMax = inGameMaxPos + 1;
 
-  const normalizePosition = useCallback((meta: MlbMeta) => {
-    const encoded = encodeMlbPosition(meta);
-    if (encoded <= MLB_PREGAME_POSITION) return 0;
-    if (encoded >= MLB_POSTGAME_POSITION) return normalizedMax;
+  const normalizePosition = useCallback((meta: MlbMeta | NflMeta) => {
+    const encoded = meta.sport === 'nfl'
+      ? encodeNflPosition(meta as NflMeta)
+      : encodeMlbPosition(meta as MlbMeta);
+
+    const PREGAME = meta.sport === 'nfl' ? NFL_PREGAME_POSITION : MLB_PREGAME_POSITION;
+    const POSTGAME = meta.sport === 'nfl' ? NFL_POSTGAME_POSITION : MLB_POSTGAME_POSITION;
+
+    if (encoded <= PREGAME) return 0;
+    if (encoded >= POSTGAME) return normalizedMax;
     return encoded + 1;
   }, [normalizedMax]);
 
-  const denormalizePosition = useCallback((value: number): MlbMeta => {
+  const denormalizePosition = useCallback((value: number): MlbMeta | NflMeta => {
     if (value <= 0) {
-      return { sport: 'mlb', inning: 1, half: 'TOP', outs: 0, phase: 'PREGAME' };
+      return isNfl
+        ? { sport: 'nfl', quarter: 1, time: '15:00', possession: null, phase: 'PREGAME' }
+        : { sport: 'mlb', inning: 1, half: 'TOP', outs: 0, phase: 'PREGAME' };
     }
 
     if (value >= normalizedMax) {
-      return { sport: 'mlb', inning: maxInning, half: 'BOTTOM', outs: 'END', phase: 'POSTGAME' };
+      return isNfl
+        ? { sport: 'nfl', quarter: 4, time: '0:00', possession: null, phase: 'POSTGAME' }
+        : { sport: 'mlb', inning: maxInning, half: 'BOTTOM', outs: 'END', phase: 'POSTGAME' };
     }
 
-    return decodeMlbPosition(value - 1);
-  }, [maxInning, normalizedMax]);
+    return isNfl
+      ? decodeNflPosition(value - 1)
+      : decodeMlbPosition(value - 1);
+  }, [maxInning, normalizedMax, isNfl]);
 
   const currentNormalized = normalizePosition(position);
   const progressPercent = Math.min(100, Math.max(0, (currentNormalized / normalizedMax) * 100));
@@ -72,7 +94,15 @@ export function SimpleProgressSlider({
 
   const handleSliderChange = useCallback((value: number) => {
     const meta = denormalizePosition(Math.round(value));
-    onChange({ ...meta, phase: meta.phase ?? (meta.outs === 'END' ? undefined : 'IN_GAME') });
+
+    // Set default phase if not set
+    if (meta.sport === 'mlb') {
+      const mlbMeta = meta as MlbMeta;
+      onChange({ ...mlbMeta, phase: mlbMeta.phase ?? (mlbMeta.outs === 'END' ? undefined : 'IN_GAME') });
+    } else {
+      // NFL meta already has phase set
+      onChange(meta);
+    }
   }, [denormalizePosition, onChange]);
 
   const updateFromClientX = useCallback((clientX: number) => {

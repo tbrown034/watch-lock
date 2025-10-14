@@ -1,4 +1,4 @@
-import { formatMlbPosition, MlbMeta } from '@/lib/position';
+import { formatMlbPosition, formatNflPosition, MlbMeta, NflMeta } from '@/lib/position';
 import { Trash2 } from 'lucide-react';
 
 interface MessageCardProps {
@@ -6,13 +6,18 @@ interface MessageCardProps {
     id: string;
     author: string;
     body: string;
-    position: MlbMeta;
+    position: MlbMeta | NflMeta;
   };
   isOwnMessage: boolean;
   onDelete?: (id: string) => void;
 }
 
 export function MessageCard({ message, isOwnMessage, onDelete }: MessageCardProps) {
+  // Format position based on sport
+  const formattedPosition = message.position.sport === 'nfl'
+    ? formatNflPosition(message.position as NflMeta)
+    : formatMlbPosition(message.position as MlbMeta);
+
   return (
     <div
       className={`p-2.5 rounded-lg transition-all ${
@@ -44,7 +49,7 @@ export function MessageCard({ message, isOwnMessage, onDelete }: MessageCardProp
                 isOwnMessage ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
               }`}
             >
-              {formatMlbPosition(message.position)}
+              {formattedPosition}
             </span>
             {onDelete && (
               <button

@@ -15,12 +15,29 @@ export interface MlbMeta {
   batter?: string;       // Optional: player name, jersey #, or description
 }
 
+export type NflDown = 1 | 2 | 3 | 4 | 'END';
+export type NflPhase = 'PREGAME' | 'Q1' | 'Q2' | 'HALFTIME' | 'Q3' | 'Q4' | 'OVERTIME' | 'POSTGAME';
+
+export interface NflMeta {
+  sport: 'nfl';
+  quarter: 1 | 2 | 3 | 4 | 5; // 1-4 for regulation, 5 for overtime
+  time: string;          // "15:00", "7:32", etc.
+  possession: 'home' | 'away' | null;
+  down?: NflDown;        // Current down or END for end of quarter
+  distance?: number;     // Yards to go for first down
+  yardLine?: number;     // 0-100 (0 = own goal line, 50 = midfield, 100 = opponent goal line)
+  phase?: NflPhase;      // Game phase
+}
+
 export const MLB_PREGAME_POSITION = -1;
 export const MLB_POSTGAME_POSITION = 1_000_000; // Sentinel larger than any encoded inning
 
+export const NFL_PREGAME_POSITION = -1;
+export const NFL_POSTGAME_POSITION = 2_000_000; // Sentinel larger than any encoded quarter
+
 export interface Position {
   pos: number;           // Monotonic integer (0, 1, 2, ...)
-  posMeta: MlbMeta;      // Sport-specific metadata
+  posMeta: MlbMeta | NflMeta; // Sport-specific metadata
 }
 
 /**
@@ -247,5 +264,182 @@ export function isValidMlbPosition(meta: MlbMeta): boolean {
     meta.inning >= 1 &&
     (meta.half === 'TOP' || meta.half === 'BOTTOM') &&
     (meta.outs === 0 || meta.outs === 1 || meta.outs === 2 || meta.outs === 'END')
+  );
+}
+
+/**
+ * Encode NFL position to monotonic integer
+ * Each quarter has 900 positions (15 minutes = 900 seconds)
+ * Position = quarter_base + seconds_elapsed
+ *
+ * Examples:
+ * - Q1 15:00 (start) = 0
+ * - Q1 10:00 = 300
+ * - Q1 0:00 (end) = 899
+ * - Q2 15:00 (start) = 900
+ * - Q4 0:00 (end) = 3599
+ * - OT starts at 3600
+ *
+ * @param meta NFL position metadata
+ * @returns Monotonic integer position
+ */
+export function encodeNflPosition(meta: NflMeta): number {
+  if (meta.phase === 'PREGAME') {
+    return NFL_PREGAME_POSITION;
+  }
+
+  if (meta.phase === 'POSTGAME') {
+    return NFL_POSTGAME_POSITION;
+  }
+
+  // Parse time string "MM:SS"
+  const [minutes, seconds] = meta.time.split(':').map(Number);
+  const timeInSeconds = minutes * 60 + seconds;
+
+  // Calculate seconds elapsed in quarter (15:00 - current time)
+  const secondsElapsed = 900 - timeInSeconds;
+
+  // Quarter base positions: Q1=0, Q2=900, Q3=1800, Q4=2700, OT=3600
+  const quarterBase = (meta.quarter - 1) * 900;
+
+  return quarterBase + secondsElapsed;
+}
+
+/**
+ * Decode monotonic integer back to NFL position
+ *
+ * @param pos Monotonic integer position
+ * @returns NFL position metadata
+ */
+export function decodeNflPosition(pos: number): NflMeta {
+  if (pos <= NFL_PREGAME_POSITION) {
+    return {
+      sport: 'nfl',
+      quarter: 1,
+      time: '15:00',
+      possession: null,
+      phase: 'PREGAME'
+    };
+  }
+
+  if (pos >= NFL_POSTGAME_POSITION) {
+    return {
+      sport: 'nfl',
+      quarter: 4,
+      time: '0:00',
+      possession: null,
+      phase: 'POSTGAME'
+    };
+  }
+
+  // Determine quarter (0-899 = Q1, 900-1799 = Q2, etc.)
+  const quarter = Math.min(Math.floor(pos / 900) + 1, 5) as 1 | 2 | 3 | 4 | 5;
+
+  // Calculate seconds elapsed in quarter
+  const secondsElapsed = pos % 900;
+
+  // Convert to time remaining (15:00 - elapsed)
+  const timeRemaining = 900 - secondsElapsed;
+  const minutes = Math.floor(timeRemaining / 60);
+  const seconds = timeRemaining % 60;
+  const time = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+  return {
+    sport: 'nfl',
+    quarter,
+    time,
+    possession: null
+  };
+}
+
+/**
+ * Format NFL position for display
+ *
+ * @param meta NFL position metadata
+ * @returns Human-readable position string (e.g., "Q3 7:32 • 2nd & 8 • Home possession")
+ */
+export function formatNflPosition(meta: NflMeta): string {
+  if (meta.phase === 'PREGAME') {
+    return 'Pregame';
+  }
+
+  if (meta.phase === 'POSTGAME') {
+    return 'Final';
+  }
+
+  if (meta.phase === 'HALFTIME') {
+    return 'Halftime';
+  }
+
+  const quarter = meta.quarter <= 4 ? `Q${meta.quarter}` : 'OT';
+  let positionStr = `${quarter} ${meta.time}`;
+
+  if (meta.down && meta.down !== 'END' && meta.distance !== undefined) {
+    const downSuffix = ['st', 'nd', 'rd', 'th'][meta.down - 1];
+    positionStr += ` • ${meta.down}${downSuffix} & ${meta.distance}`;
+
+    if (meta.yardLine !== undefined) {
+      positionStr += ` at ${meta.yardLine}`;
+    }
+  }
+
+  if (meta.possession) {
+    positionStr += ` • ${meta.possession === 'home' ? 'Home' : 'Away'} ball`;
+  }
+
+  return positionStr;
+}
+
+/**
+ * Format NFL position with team context
+ *
+ * @param meta NFL position metadata
+ * @param awayTeam Name of away team
+ * @param homeTeam Name of home team
+ * @returns Position string with team names
+ */
+export function formatNflPositionWithTeams(
+  meta: NflMeta,
+  awayTeam: string,
+  homeTeam: string
+): string {
+  if (meta.phase === 'PREGAME') {
+    return `Pregame • ${awayTeam} @ ${homeTeam}`;
+  }
+
+  if (meta.phase === 'POSTGAME') {
+    return `Final • ${awayTeam} @ ${homeTeam}`;
+  }
+
+  if (meta.phase === 'HALFTIME') {
+    return `Halftime • ${awayTeam} @ ${homeTeam}`;
+  }
+
+  const basePosition = formatNflPosition(meta);
+
+  if (meta.possession) {
+    const teamWithBall = meta.possession === 'home' ? homeTeam : awayTeam;
+    return basePosition.replace(meta.possession === 'home' ? 'Home ball' : 'Away ball', `${teamWithBall} ball`);
+  }
+
+  return basePosition;
+}
+
+/**
+ * Validate NFL position metadata
+ *
+ * @param meta Position metadata to validate
+ * @returns true if valid, false otherwise
+ */
+export function isValidNflPosition(meta: NflMeta): boolean {
+  if (meta.phase === 'PREGAME' || meta.phase === 'POSTGAME' || meta.phase === 'HALFTIME') {
+    return meta.sport === 'nfl';
+  }
+
+  return (
+    meta.sport === 'nfl' &&
+    meta.quarter >= 1 &&
+    meta.quarter <= 5 &&
+    /^\d{1,2}:\d{2}$/.test(meta.time)
   );
 }

@@ -8,13 +8,17 @@ import { mockGames } from '@/lib/mock-data';
 import { GameCard } from '@/components/game/GameCard';
 import { UI_CONFIG } from '@/lib/constants';
 import type { MlbScheduleGame } from '@/lib/services/mlbSchedule';
+import type { NflScheduleGame } from '@/lib/services/nflSchedule';
 import type { User } from '@supabase/supabase-js';
 import { RoomCreateModal } from '@/components/room/RoomCreateModal';
 import { RoomJoinModal } from '@/components/room/RoomJoinModal';
 import { ShareCodeDisplay } from '@/components/room/ShareCodeDisplay';
 
+// Unified game type with sport identifier
+type UnifiedGame = (MlbScheduleGame | NflScheduleGame) & { sport: 'mlb' | 'nfl' };
+
 interface ScheduleState {
-  games: MlbScheduleGame[];
+  games: UnifiedGame[];
   isLoading: boolean;
   error: string | null;
 }
@@ -47,26 +51,44 @@ export default function GamesPage() {
     return () => subscription.unsubscribe();
   }, [supabase.auth]);
 
-  // Fetch schedule
+  // Fetch schedule (both MLB and NFL)
   useEffect(() => {
     let isMounted = true;
 
     async function fetchSchedule() {
       try {
-        const response = await fetch('/api/games/schedule');
-        if (!response.ok) {
-          throw new Error('Failed to fetch schedule');
-        }
-        const data = await response.json();
+        // Fetch both MLB and NFL games in parallel
+        const [mlbResponse, nflResponse] = await Promise.all([
+          fetch('/api/games/schedule?sport=mlb'),
+          fetch('/api/games/schedule?sport=nfl')
+        ]);
+
+        const mlbData = mlbResponse.ok ? await mlbResponse.json() : { games: [] };
+        const nflData = nflResponse.ok ? await nflResponse.json() : { games: [] };
+
+        // Tag games with their sport
+        const mlbGames: UnifiedGame[] = (mlbData.games ?? []).map((game: MlbScheduleGame) => ({
+          ...game,
+          sport: 'mlb' as const
+        }));
+
+        const nflGames: UnifiedGame[] = (nflData.games ?? []).map((game: NflScheduleGame) => ({
+          ...game,
+          sport: 'nfl' as const
+        }));
+
+        // Merge games
+        const allGames = [...mlbGames, ...nflGames];
+
         if (isMounted) {
-          setSchedule({ games: data.games ?? [], isLoading: false, error: null });
+          setSchedule({ games: allGames, isLoading: false, error: null });
         }
       } catch (error) {
         if (isMounted) {
           setSchedule({
             games: [],
             isLoading: false,
-            error: 'Unable to load the live MLB schedule right now. Using demo games instead.',
+            error: 'Unable to load live game schedules right now. Using demo games instead.',
           });
         }
       }
@@ -168,7 +190,7 @@ export default function GamesPage() {
 
             {schedule.games.map((game) => (
               <div key={game.id} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5">
-                <GameCard game={game} variant="live" />
+                <GameCard game={game} variant="live" sport={game.sport} />
                 <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
                   <button
                     onClick={() => handleCreateRoom({ id: game.id, homeTeam: game.homeTeam, awayTeam: game.awayTeam })}
@@ -190,7 +212,7 @@ export default function GamesPage() {
                         rel="noopener noreferrer"
                         className="flex-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium text-xs rounded transition-colors text-center flex items-center justify-center gap-1"
                       >
-                        MLB Preview
+                        {game.sport === 'nfl' ? 'ESPN Preview' : 'MLB Preview'}
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>

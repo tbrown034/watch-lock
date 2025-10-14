@@ -1,4 +1,4 @@
-import { MlbMeta } from './position';
+import { MlbMeta, NflMeta } from './position';
 
 export interface MockGame {
   id: string;
@@ -14,7 +14,7 @@ export interface MockMessage {
   id: string;
   author: string;
   body: string;
-  position: MlbMeta;
+  position: MlbMeta | NflMeta;
 }
 
 // Today's games - API would provide this data
