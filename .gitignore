@@ -55,3 +55,9 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Debug and test scripts (prevent hardcoded secrets)
+test-*.js
+test-*.sh
+check_*.sql
+debug_*.sql
