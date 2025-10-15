@@ -191,34 +191,47 @@ export default function GamesPage() {
             {schedule.games.map((game) => (
               <div key={game.id} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5">
                 <GameCard game={game} variant="live" sport={game.sport} />
-                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
-                  <button
-                    onClick={() => handleCreateRoom({ id: game.id, homeTeam: game.homeTeam, awayTeam: game.awayTeam })}
-                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base rounded-lg transition-colors shadow-sm"
-                  >
-                    Join Game
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/games/${game.id}`}
-                      className="flex-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium text-xs rounded transition-colors text-center"
+
+                {/* Game Preview Link */}
+                {game.gameLink && (
+                  <div className="mt-4">
+                    <a
+                      href={game.gameLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
                     >
-                      Test Mode
-                    </Link>
-                    {game.gameLink && (
-                      <a
-                        href={game.gameLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium text-xs rounded transition-colors text-center flex items-center justify-center gap-1"
-                      >
-                        {game.sport === 'nfl' ? 'ESPN Preview' : 'MLB Preview'}
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
-                    )}
+                      {game.sport === 'nfl' ? 'ESPN Game Preview' : 'MLB Game Preview'}
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
                   </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleCreateRoom({ id: game.id, homeTeam: game.homeTeam, awayTeam: game.awayTeam })}
+                      className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base rounded-lg transition-colors shadow-sm"
+                    >
+                      Create Room
+                    </button>
+                    <button
+                      onClick={handleJoinRoom}
+                      className="flex-1 px-4 py-3 border-2 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 font-semibold text-base rounded-lg transition-colors"
+                    >
+                      Join Room
+                    </button>
+                  </div>
+
+                  <Link
+                    href={`/games/${game.id}`}
+                    className="block text-center text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                  >
+                    Test Mode
+                  </Link>
                 </div>
               </div>
             ))}
@@ -234,34 +247,15 @@ export default function GamesPage() {
             {mockGames.map((game) => (
               <div key={game.id} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5">
                 <GameCard game={game} variant="demo" />
-                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
-                  <button
-                    onClick={() => handleCreateRoom({ id: game.id, homeTeam: game.homeTeam, awayTeam: game.awayTeam })}
-                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base rounded-lg transition-colors shadow-sm"
+
+                {/* Action Buttons - Demo games go directly to test mode */}
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <Link
+                    href={`/games/${game.id}`}
+                    className="block w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base rounded-lg transition-colors shadow-sm text-center"
                   >
-                    Join Game
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/games/${game.id}`}
-                      className="flex-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium text-xs rounded transition-colors text-center"
-                    >
-                      Test Mode
-                    </Link>
-                    {game.gameLink && (
-                      <a
-                        href={game.gameLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium text-xs rounded transition-colors text-center flex items-center justify-center gap-1"
-                      >
-                        MLB Preview
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
-                    )}
-                  </div>
+                    Enter Demo
+                  </Link>
                 </div>
               </div>
             ))}

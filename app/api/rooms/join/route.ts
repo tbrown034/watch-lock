@@ -81,13 +81,13 @@ export async function POST(request: Request) {
       // User is already in the room - return success with game info
       const { data: game } = await supabase
         .from('games')
-        .select('id')
+        .select('external_id')
         .eq('room_id', room.id)
         .single()
 
       return NextResponse.json({
         roomId: room.id,
-        gameId: game?.id,
+        gameId: game?.external_id, // Return external_id (mlb-813043) instead of database UUID
         message: 'You are already a member of this room',
         success: true
       })
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     // Get the game for this room
     const { data: game, error: gameError } = await supabase
       .from('games')
-      .select('id')
+      .select('id, external_id')
       .eq('room_id', room.id)
       .single()
 
@@ -169,7 +169,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       roomId: room.id,
-      gameId: game.id,
+      gameId: game.external_id, // Return external_id (mlb-813043) instead of database UUID
       memberCount: (memberCount || 0) + 1,
       success: true
     })
