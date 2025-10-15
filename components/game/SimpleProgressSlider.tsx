@@ -27,6 +27,7 @@ interface SimpleProgressSliderProps {
   messageMarkers?: MessageMarker[];
   livePosition?: MlbMeta | NflMeta | null;
   maxInning?: number;
+  showMarkers?: boolean;
 }
 
 export function SimpleProgressSlider({
@@ -34,7 +35,8 @@ export function SimpleProgressSlider({
   onChange,
   messageMarkers = [],
   livePosition = null,
-  maxInning = GAME_CONSTRAINTS.DEFAULT_MAX_INNING
+  maxInning = GAME_CONSTRAINTS.DEFAULT_MAX_INNING,
+  showMarkers = true
 }: SimpleProgressSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const pointerIdRef = useRef<number | null>(null);
@@ -133,7 +135,7 @@ export function SimpleProgressSlider({
   }, []);
 
   return (
-    <div className="w-full py-2">
+    <div className={`w-full pb-2 ${showMarkers ? 'pt-10' : 'pt-2'}`}>
       <div className="relative">
         <div
           ref={trackRef}
@@ -149,31 +151,44 @@ export function SimpleProgressSlider({
           />
 
           {/* Message markers */}
-          {markerPositions.map((marker, idx) => (
+          {showMarkers && markerPositions.map((marker, idx) => (
             <div
               key={idx}
-              className="absolute top-0 transform -translate-x-1/2"
+              className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-gradient-to-t from-green-500 to-green-400 z-10"
               style={{ left: `${marker.percent}%` }}
+              title={`Message from ${marker.author}`}
             >
-              <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[9px] border-t-green-500 transform translate-y-[-16px]"></div>
+              {/* Line extending above the track */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0.5 h-6 bg-gradient-to-t from-green-500 to-green-400"></div>
+              {/* Top marker dot */}
+              <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-green-500 border-2 border-white dark:border-slate-800 shadow-lg flex items-center justify-center">
+                <MessageSquare className="w-2 h-2 text-white" strokeWidth={3} />
+              </div>
+              {/* Bottom connection dot on track */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 border border-white shadow-sm"></div>
             </div>
           ))}
 
           {/* Live position indicator */}
-          {livePercent !== null && (
+          {showMarkers && livePercent !== null && (
             <div
-              className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-red-500 opacity-70 z-10"
+              className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-gradient-to-t from-red-500 to-red-400 z-10"
               style={{ left: `${livePercent}%` }}
               title="Live position"
             >
-              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-red-500 border border-white shadow-sm"></div>
+              {/* Line extending above the track */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0.5 h-6 bg-gradient-to-t from-red-500 to-red-400"></div>
+              {/* Top marker */}
+              <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-red-500 border-2 border-white dark:border-slate-800 shadow-lg"></div>
+              {/* Bottom connection dot on track */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-red-500 border border-white shadow-sm"></div>
             </div>
           )}
 
           {/* Current position marker */}
           <div
-            className="pointer-events-none absolute -top-[4px] h-5 w-5 rounded-full border-2 border-white bg-blue-600 shadow-lg z-20"
-            style={{ left: `calc(${progressPercent}% - 10px)` }}
+            className="pointer-events-none absolute -top-[6px] h-6 w-6 rounded-full border-[3px] border-white dark:border-slate-800 bg-blue-600 shadow-xl z-20 ring-2 ring-blue-400 ring-opacity-50"
+            style={{ left: `calc(${progressPercent}% - 12px)` }}
           />
         </div>
 
