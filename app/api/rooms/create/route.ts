@@ -160,7 +160,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       roomId: room.id,
       shareCode: room.share_code,
-      gameId: game.id,
+      gameId: game.external_id, // Return external_id (mlb-813043) instead of database UUID
       success: true
     })
 

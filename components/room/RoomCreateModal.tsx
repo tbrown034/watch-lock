@@ -26,7 +26,6 @@ export function RoomCreateModal({
   onSuccess
 }: RoomCreateModalProps) {
   const [roomName, setRoomName] = useState(`${homeTeam} vs ${awayTeam} Watch Party`)
-  const [maxMembers, setMaxMembers] = useState(10)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,7 +41,7 @@ export function RoomCreateModal({
         body: JSON.stringify({
           gameId,
           name: roomName,
-          maxMembers,
+          maxMembers: 10,
           homeTeam,
           awayTeam
         })
@@ -106,25 +105,6 @@ export function RoomCreateModal({
               required
               maxLength={100}
             />
-          </div>
-
-          <div>
-            <label htmlFor="maxMembers" className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-              Max Members
-            </label>
-            <input
-              id="maxMembers"
-              type="number"
-              value={maxMembers}
-              onChange={(e) => setMaxMembers(parseInt(e.target.value))}
-              min={2}
-              max={50}
-              className="w-full px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100"
-              required
-            />
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              How many people can join? (2-50)
-            </p>
           </div>
 
           {error && (
