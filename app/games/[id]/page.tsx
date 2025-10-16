@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { SimpleProgressSlider } from '@/components/game/SimpleProgressSlider';
 import { ExactPosition } from '@/components/game/ExactPosition';
 import { FieldView } from '@/components/game/FieldView';
@@ -24,10 +24,13 @@ import type { MlbGameState } from '@/lib/services/mlbGameState';
 import type { NflGameState } from '@/lib/services/nflGameState';
 import { getTeamAbbreviation as getMlbTeamAbbreviation } from '@/lib/mlb-teams';
 import { getTeamAbbreviation as getNflTeamAbbreviation } from '@/lib/nfl-teams';
-import { Calendar, Clock, MessageSquare, Package, ExternalLink, RefreshCw, ChevronDown, ChevronUp, RotateCcw, Send, Eye, EyeOff } from 'lucide-react';
+import { Calendar, Clock, MessageSquare, Package, ExternalLink, RefreshCw, ChevronDown, ChevronUp, RotateCcw, Send, Eye, EyeOff, Users, Share2, Trash2 } from 'lucide-react';
+import { ShareCodeDisplay } from '@/components/room/ShareCodeDisplay';
+import { RoomMemberList } from '@/components/room/RoomMemberList';
 
 export default function GameRoomPage() {
   const params = useParams();
+  const router = useRouter();
   const gameId = params.id as string;
 
   const game = mockGames.find(g => g.id === gameId);
@@ -88,6 +91,17 @@ export default function GameRoomPage() {
   const [showGameInfo, setShowGameInfo] = useState(false);
   const [showExactPicker, setShowExactPicker] = useState(false);
   const [showMarkers, setShowMarkers] = useState(true);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showRoomInfo, setShowRoomInfo] = useState(true); // Open by default
+  const [deletingRoom, setDeletingRoom] = useState(false);
+  const [roomInfo, setRoomInfo] = useState<{
+    id: string;
+    name: string;
+    shareCode: string;
+    maxMembers: number;
+    memberCount: number;
+    isOwner: boolean;
+  } | null>(null);
   const timezoneAbbr = UI_CONFIG.TIMEZONE.split('/').pop();
   const resolvedGame = game ?? liveGame ?? null;
   const awayTeam = resolvedGame?.awayTeam ?? 'Away';
@@ -212,6 +226,39 @@ export default function GameRoomPage() {
     }
   }, [userPosition, gameId]);
 
+  // Fetch room information
+  useEffect(() => {
+    async function fetchRoomInfo() {
+      try {
+        console.log('Fetching room info for game:', gameId);
+        const response = await fetch(`/api/games/${gameId}/room`);
+        console.log('Room info response status:', response.status);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.log('Room info error:', errorData);
+          // Not in a room - that's OK for test mode
+          return;
+        }
+        const data = await response.json();
+        console.log('Room info data:', data);
+        setRoomInfo(data.room);
+
+        // Clear old localStorage messages when entering a room
+        // Messages should come from the database, not localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(STORAGE_KEYS.getMessagesKey(gameId));
+          setMessages([]);
+        }
+      } catch (error) {
+        // Silently fail - room info is optional
+        console.error('Failed to fetch room info:', error);
+      }
+    }
+
+    fetchRoomInfo();
+  }, [gameId]);
+
   const today = new Date().toLocaleDateString('en-US', {
     ...UI_CONFIG.DATE_FORMAT.FULL,
     timeZone: UI_CONFIG.TIMEZONE
@@ -245,6 +292,34 @@ export default function GameRoomPage() {
       </div>
     );
   }
+
+  const handleDeleteRoom = async () => {
+    if (!roomInfo) return;
+
+    if (!confirm('Are you sure you want to delete this room? This action cannot be undone and will delete all messages and progress.')) {
+      return;
+    }
+
+    setDeletingRoom(true);
+
+    try {
+      const response = await fetch(`/api/rooms/${roomInfo.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete room');
+      }
+
+      // Redirect to games page
+      router.push('/games');
+    } catch (error) {
+      console.error('Error deleting room:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete room');
+      setDeletingRoom(false);
+    }
+  };
 
   const handleResetProgress = () => {
     const resetMeta: MlbMeta | NflMeta = sport === 'nfl'
@@ -382,6 +457,87 @@ export default function GameRoomPage() {
         {/* 1. How It Works */}
         <HowItWorks />
 
+        {/* Room Info Section */}
+        {roomInfo && (
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    {roomInfo.name}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowRoomInfo(!showRoomInfo)}
+                  className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                  aria-label={showRoomInfo ? 'Hide room info' : 'Show room info'}
+                >
+                  {showRoomInfo ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {showRoomInfo && (
+              <div className="p-4 space-y-4">
+                {/* Share Code */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Share Code
+                  </label>
+                  <div className="flex items-center justify-between">
+                    <ShareCodeDisplay shareCode={roomInfo.shareCode} compact={true} />
+                    <button
+                      onClick={() => setShowInviteModal(true)}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      Invite
+                    </button>
+                  </div>
+                </div>
+
+                {/* Member Count */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Members
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    <span className="text-sm text-slate-700 dark:text-slate-300">
+                      {roomInfo.memberCount} / {roomInfo.maxMembers} members
+                    </span>
+                  </div>
+                </div>
+
+                {/* Delete Room (Owner Only) */}
+                {roomInfo.isOwner && (
+                  <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex justify-center">
+                      <button
+                        onClick={handleDeleteRoom}
+                        disabled={deletingRoom}
+                        className="px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-lg transition-all text-xs font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{deletingRoom ? 'Deleting...' : 'Delete Room'}</span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">
+                      This will permanently delete the room and all its data
+                    </p>
+                  </div>
+                )}
+
+                {/* Member List */}
+                <div className="border-t border-slate-200 dark:border-slate-700 pt-4 -mx-4 -mb-4">
+                  <RoomMemberList roomId={roomInfo.id} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Schedule Error Alert */}
         {isLiveGame && scheduleError && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
@@ -427,26 +583,25 @@ export default function GameRoomPage() {
             />
 
             {/* Buttons */}
-            <div className="flex gap-2">
+            <div className="flex gap-3 justify-center">
               <button
                 onClick={handleResetProgress}
-                className="w-full px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg transition-all text-sm font-medium flex items-center justify-center gap-2"
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg transition-all text-xs font-medium flex items-center gap-2"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3.5 h-3.5" />
                 Reset
+              </button>
+              <button
+                onClick={() => setShowExactPicker(!showExactPicker)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all text-xs font-semibold flex items-center gap-2"
+              >
+                {showExactPicker ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                <span>Jump to Exact Position</span>
               </button>
             </div>
 
             {/* Exact Position Picker (collapsed by default) */}
             <div className="pt-2">
-              <button
-                onClick={() => setShowExactPicker(!showExactPicker)}
-                className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 flex items-center gap-1 transition-colors"
-              >
-                {showExactPicker ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                <span>Jump to exact position</span>
-              </button>
-
               {showExactPicker && (
                 <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-slate-200 dark:border-slate-700">
                   <ExactPosition
@@ -502,18 +657,6 @@ export default function GameRoomPage() {
                 )}
               </div>
             </div>
-
-            {/* Progress Slider in Messages */}
-            <SimpleProgressSlider
-              position={userPosition}
-              onChange={setUserPosition}
-              messageMarkers={messages.map(msg => ({
-                position: msg.position,
-                author: msg.author
-              }))}
-              livePosition={livePosition}
-              showMarkers={showMarkers}
-            />
           </div>
 
           {/* Hidden Messages Alert */}
@@ -597,9 +740,48 @@ export default function GameRoomPage() {
                 {newMessage.length}/{MESSAGE_CONSTRAINTS.MAX_LENGTH} characters
               </span>
             </div>
+
+            {/* Progress Slider */}
+            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <SimpleProgressSlider
+                position={userPosition}
+                onChange={setUserPosition}
+                messageMarkers={messages.map(msg => ({
+                  position: msg.position,
+                  author: msg.author
+                }))}
+                livePosition={livePosition}
+                showMarkers={showMarkers}
+              />
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Invite Modal */}
+      {showInviteModal && roomInfo && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 border-2 border-slate-900 dark:border-slate-100 max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3 uppercase tracking-wide">
+              Invite to {roomInfo.name}
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+              Share this code with friends to invite them to your watch party:
+            </p>
+            <ShareCodeDisplay
+              shareCode={roomInfo.shareCode}
+              roomId={roomInfo.id}
+              compact={false}
+            />
+            <button
+              onClick={() => setShowInviteModal(false)}
+              className="w-full mt-4 px-4 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

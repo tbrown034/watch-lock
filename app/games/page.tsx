@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { mockGames } from '@/lib/mock-data';
 import { GameCard } from '@/components/game/GameCard';
 import { UI_CONFIG } from '@/lib/constants';
 import type { MlbScheduleGame } from '@/lib/services/mlbSchedule';
@@ -13,6 +12,7 @@ import type { User } from '@supabase/supabase-js';
 import { RoomCreateModal } from '@/components/room/RoomCreateModal';
 import { RoomJoinModal } from '@/components/room/RoomJoinModal';
 import { ShareCodeDisplay } from '@/components/room/ShareCodeDisplay';
+import { Users } from 'lucide-react';
 
 // Unified game type with sport identifier
 type UnifiedGame = (MlbScheduleGame | NflScheduleGame) & { sport: 'mlb' | 'nfl' };
@@ -21,6 +21,11 @@ interface ScheduleState {
   games: UnifiedGame[];
   isLoading: boolean;
   error: string | null;
+}
+
+interface GameStats {
+  roomCount: number;
+  memberCount: number;
 }
 
 export default function GamesPage() {
@@ -32,11 +37,13 @@ export default function GamesPage() {
     isLoading: true,
     error: null,
   });
+  const [gameStats, setGameStats] = useState<Record<string, GameStats>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [selectedGame, setSelectedGame] = useState<{ id: string; homeTeam: string; awayTeam: string } | null>(null);
-  const [createdRoomData, setCreatedRoomData] = useState<{ shareCode: string; gameId: string } | null>(null);
+  const [showAuthRequiredModal, setShowAuthRequiredModal] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<{ id: string; homeTeam: string; awayTeam: string; gameDate?: string } | null>(null);
+  const [createdRoomData, setCreatedRoomData] = useState<{ shareCode: string; gameId: string; roomName: string } | null>(null);
 
   // Check auth status
   useEffect(() => {
@@ -101,18 +108,57 @@ export default function GamesPage() {
     };
   }, []);
 
-  const handleCreateRoom = (game: { id: string; homeTeam: string; awayTeam: string }) => {
+  // Fetch game stats (room counts)
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchGameStats() {
+      try {
+        const response = await fetch('/api/games/stats');
+        if (!response.ok) {
+          throw new Error('Failed to fetch game stats');
+        }
+        const data = await response.json();
+        if (isMounted) {
+          setGameStats(data);
+        }
+      } catch (error) {
+        console.error('Error fetching game stats:', error);
+        // Silently fail - stats are optional
+      }
+    }
+
+    fetchGameStats();
+
+    // Refresh stats every 30 seconds
+    const interval = setInterval(fetchGameStats, 30000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleCreateRoom = (game: { id: string; homeTeam: string; awayTeam: string; gameDate?: string }) => {
+    if (!user) {
+      setShowAuthRequiredModal(true);
+      return;
+    }
     setSelectedGame(game);
     setShowCreateModal(true);
   };
 
   const handleJoinRoom = () => {
+    if (!user) {
+      setShowAuthRequiredModal(true);
+      return;
+    }
     setShowJoinModal(true);
   };
 
-  const handleCreateSuccess = (roomId: string, shareCode: string, gameId: string) => {
+  const handleCreateSuccess = (roomId: string, shareCode: string, gameId: string, roomName: string) => {
     setShowCreateModal(false);
-    setCreatedRoomData({ shareCode, gameId });
+    setCreatedRoomData({ shareCode, gameId, roomName });
     setShowSuccessModal(true);
   };
 
@@ -124,6 +170,19 @@ export default function GamesPage() {
   const handleGoToRoom = () => {
     if (createdRoomData) {
       router.push(`/games/${createdRoomData.gameId}`);
+    }
+  };
+
+  const handleSignIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?redirect=/games`,
+      },
+    });
+    if (error) {
+      console.error('Error signing in:', error);
+      alert('Error signing in. Please try again.');
     }
   };
 
@@ -188,9 +247,26 @@ export default function GamesPage() {
               </div>
             )}
 
-            {schedule.games.map((game) => (
+            {schedule.games.map((game) => {
+              const stats = gameStats[game.id] || null;
+
+              return (
               <div key={game.id} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5">
                 <GameCard game={game} variant="live" sport={game.sport} />
+
+                {/* Room Stats Badge */}
+                {stats && stats.roomCount > 0 && (
+                  <div className="mt-3 flex items-center gap-2 text-xs">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-blue-700 dark:text-blue-300 font-medium">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>
+                        {stats.roomCount} {stats.roomCount === 1 ? 'watch party' : 'watch parties'}
+                      </span>
+                      <span className="text-blue-500 dark:text-blue-400">•</span>
+                      <span>{stats.memberCount} {stats.memberCount === 1 ? 'person' : 'people'}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Game Preview Link */}
                 {game.gameLink && (
@@ -213,7 +289,12 @@ export default function GamesPage() {
                 <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => handleCreateRoom({ id: game.id, homeTeam: game.homeTeam, awayTeam: game.awayTeam })}
+                      onClick={() => handleCreateRoom({
+                        id: game.id,
+                        homeTeam: game.homeTeam,
+                        awayTeam: game.awayTeam,
+                        gameDate: 'gameDate' in game ? game.gameDate : undefined
+                      })}
                       className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base rounded-lg transition-colors shadow-sm"
                     >
                       Create Room
@@ -226,39 +307,14 @@ export default function GamesPage() {
                     </button>
                   </div>
 
-                  <Link
-                    href={`/games/${game.id}`}
-                    className="block text-center text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
-                  >
-                    Test Mode
-                  </Link>
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Rooms Created: <span className="font-semibold text-slate-700 dark:text-slate-300">{stats?.roomCount || 0}</span>
+                    </p>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Demo Game Rooms */}
-        <section>
-          <div className="mb-4">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Demo Games</h2>
-          </div>
-          <div className="space-y-3">
-            {mockGames.map((game) => (
-              <div key={game.id} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl backdrop-blur-sm transition-all duration-300 p-5">
-                <GameCard game={game} variant="demo" />
-
-                {/* Action Buttons - Demo games go directly to test mode */}
-                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                  <Link
-                    href={`/games/${game.id}`}
-                    className="block w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base rounded-lg transition-colors shadow-sm text-center"
-                  >
-                    Enter Demo
-                  </Link>
-                </div>
-              </div>
-            ))}
+            )})}
           </div>
         </section>
       </div>
@@ -269,6 +325,7 @@ export default function GamesPage() {
           gameId={selectedGame.id}
           homeTeam={selectedGame.homeTeam}
           awayTeam={selectedGame.awayTeam}
+          gameDate={selectedGame.gameDate}
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
         />
@@ -287,6 +344,9 @@ export default function GamesPage() {
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3 uppercase tracking-wide">
               Watch Party Created
             </h2>
+            <p className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              {createdRoomData.roomName}
+            </p>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
               Share this code:
             </p>
@@ -300,6 +360,33 @@ export default function GamesPage() {
             >
               Enter Room →
             </button>
+          </div>
+        </div>
+      )}
+
+      {showAuthRequiredModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">
+              Sign In Required
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+              Only logged in users can create or join watch parties. Sign in or create an account to get started!
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleSignIn}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
+              >
+                Sign In with Google
+              </button>
+              <button
+                onClick={() => setShowAuthRequiredModal(false)}
+                className="flex-1 px-4 py-3 border-2 border-slate-300 dark:border-slate-600 rounded-lg font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

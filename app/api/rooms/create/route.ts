@@ -7,10 +7,11 @@
  * Request body:
  * {
  *   "gameId": "mlb-746532",           // External game ID (from MLB API)
- *   "name": "My Watch Party",          // Room name
+ *   "name": "My Watch Party",          // Base room name (will be reformatted with abbreviations + date)
  *   "maxMembers": 10,                  // Optional, defaults to 10
  *   "homeTeam": "Yankees",             // From game data
- *   "awayTeam": "Red Sox"              // From game data
+ *   "awayTeam": "Red Sox",             // From game data
+ *   "gameDate": "2025-10-16T..."       // ISO date string from API
  * }
  *
  * Response:
@@ -23,6 +24,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { getTeamAbbreviation as getMlbTeamAbbreviation } from '@/lib/mlb-teams'
+import { getTeamAbbreviation as getNflTeamAbbreviation } from '@/lib/nfl-teams'
 
 // Generate a random 6-character share code
 function generateShareCode(): string {
@@ -32,6 +35,18 @@ function generateShareCode(): string {
     code += chars.charAt(Math.floor(Math.random() * chars.length))
   }
   return code
+}
+
+// Format date as M/D (e.g., "10/16")
+function formatGameDate(isoDate: string): string {
+  try {
+    const date = new Date(isoDate)
+    const month = date.getMonth() + 1 // 0-indexed
+    const day = date.getDate()
+    return `${month}/${day}`
+  } catch {
+    return ''
+  }
 }
 
 export async function POST(request: Request) {
@@ -52,7 +67,7 @@ export async function POST(request: Request) {
 
     // Parse request body
     const body = await request.json()
-    const { gameId, name, maxMembers = 10, homeTeam, awayTeam } = body
+    const { gameId, name, maxMembers = 10, homeTeam, awayTeam, gameDate } = body
 
     // Validate required fields
     if (!gameId || !name || !homeTeam || !awayTeam) {
@@ -61,6 +76,16 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    // Determine sport and get appropriate abbreviation function
+    const isNfl = gameId.startsWith('nfl-')
+    const getTeamAbbreviation = isNfl ? getNflTeamAbbreviation : getMlbTeamAbbreviation
+
+    // Generate formatted room name: "MIL @ LAD - 10/16"
+    const awayAbbr = getTeamAbbreviation(awayTeam)
+    const homeAbbr = getTeamAbbreviation(homeTeam)
+    const dateStr = gameDate ? ` - ${formatGameDate(gameDate)}` : ''
+    const baseRoomName = `${awayAbbr} @ ${homeAbbr}${dateStr}`
 
     // Generate unique share code (retry if collision)
     let shareCode = generateShareCode()
@@ -87,13 +112,29 @@ export async function POST(request: Request) {
       )
     }
 
+    // Count existing rooms for this game to determine the next number
+    const { data: existingGames, error: countError } = await supabase
+      .from('games')
+      .select('id, room_id')
+      .eq('external_id', gameId)
+
+    if (countError) {
+      console.error('Error counting existing rooms:', countError)
+    }
+
+    // Add room number if multiple rooms exist for this game
+    const roomCount = existingGames?.length || 0
+    const finalRoomName = roomCount > 0
+      ? `${baseRoomName} (${roomCount + 1})`
+      : baseRoomName
+
     // Create the room
-    console.log('Attempting to create room with:', { name, shareCode, maxMembers, created_by: user.id })
+    console.log('Attempting to create room with:', { name: finalRoomName, shareCode, maxMembers, created_by: user.id })
 
     const { data: room, error: roomError } = await supabase
       .from('rooms')
       .insert({
-        name,
+        name: finalRoomName,
         share_code: shareCode,
         max_members: maxMembers,
         created_by: user.id,
@@ -108,6 +149,9 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    // Room created successfully
+    // Note: Database trigger automatically adds creator as room member with 'owner' role
 
     // Create the game linked to this room
     const { data: game, error: gameError } = await supabase
@@ -159,11 +203,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       roomId: room.id,
+      roomName: room.name, // Include the actual room name with number
       shareCode: room.share_code,
       gameId: game.external_id, // Return external_id (mlb-813043) instead of database UUID
       success: true
     })
-
   } catch (error) {
     console.error('Unexpected error in /api/rooms/create:', error)
     return NextResponse.json(

@@ -1,38 +1,29 @@
 # WatchLock Development Guide
 
-This guide covers the technical architecture, implementation details, and development workflow for WatchLock.
+Technical architecture, critical rules, and API design.
 
 ## Table of Contents
-- [Core Architecture](#core-architecture)
+- [Position System](#position-system)
 - [Database Schema](#database-schema)
 - [API Design](#api-design)
-- [Security & Critical Rules](#security--critical-rules)
-- [Component Architecture](#component-architecture)
-- [Development Workflow](#development-workflow)
-- [Tech Stack](#tech-stack)
+- [Security Rules](#security-rules)
+- [Project Structure](#project-structure)
 
-## Core Architecture
+## Position System
 
-### The Monotonic Position System
-
-The heart of WatchLock is converting any game position to a single integer for spoiler-free filtering.
+### MLB Encoding: 8 Steps Per Inning
 
 ```typescript
-// MLB Position Encoding: 8 steps per inning
-// Top: 0 outs, 1 out, 2 outs, END
-// Bottom: 0 outs, 1 out, 2 outs, END
-// Plus PREGAME and POSTGAME sentinel values
-
 export interface MlbMeta {
   sport: 'mlb';
-  inning: number;        // 1-9+ (extra innings OK)
+  inning: number;              // 1-9+ (extra innings allowed)
   half: 'TOP' | 'BOTTOM';
-  outs: 0 | 1 | 2 | 'END';  // 0-2 during play, END at half conclusion
+  outs: 0 | 1 | 2 | 'END';     // 0-2 during play, END at half conclusion
   phase?: 'PREGAME' | 'IN_PROGRESS' | 'POSTGAME';
 }
 
 const MLB_PREGAME_POSITION = -1;
-const MLB_POSTGAME_POSITION = 999999;
+const MLB_POSTGAME_POSITION = 1_000_000;
 
 function encodeMlbPosition(meta: MlbMeta): number {
   if (meta.phase === 'PREGAME') return MLB_PREGAME_POSITION;
@@ -51,431 +42,325 @@ function encodeMlbPosition(meta: MlbMeta): number {
 // Top 1st, 2 outs = 2
 // Top 1st, END = 3
 // Bottom 1st, 0 outs = 4
+// Bottom 1st, 1 out = 5
+// Bottom 1st, 2 outs = 6
 // Bottom 1st, END = 7
 // Top 2nd, 0 outs = 8
-// Postgame = 999999
+// Postgame = 1_000_000
 ```
 
-### The ONE Rule: Spoiler Prevention
+### The Filtering Rule
 
 ```typescript
-// This single line prevents all spoilers
-function filterMessages(messages: Message[], userPos: number): Message[] {
-  return messages.filter(m => m.pos <= userPos);
+// This single line prevents ALL spoilers
+function isMessageVisible(messagePos: number, userPos: number): boolean {
+  return messagePos <= userPos;
 }
-```
 
-**Key Principle**: Messages are only visible if `message.pos <= user.pos`. This is enforced server-side.
+// Applied server-side in SQL
+SELECT * FROM messages
+WHERE game_id = $1
+  AND pos <= (SELECT pos FROM progress_markers WHERE user_id = $2)
+ORDER BY pos, created_at;
+```
 
 ## Database Schema
 
 ### Core Tables
 
 ```sql
--- Games/Rooms
-CREATE TABLE games (
+-- Rooms
+CREATE TABLE rooms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
   share_code VARCHAR(6) UNIQUE NOT NULL,
-  title VARCHAR(100) NOT NULL,
-  sport VARCHAR(10) NOT NULL DEFAULT 'mlb',
-  home_team VARCHAR(50) NOT NULL,
-  away_team VARCHAR(50) NOT NULL,
-  start_time TIMESTAMPTZ,
-  created_by UUID REFERENCES auth.users(id),
+  max_members INT DEFAULT 10,
+  created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  max_members INT DEFAULT 6,
-  is_private BOOLEAN DEFAULT true
+  is_archived BOOLEAN DEFAULT FALSE
 );
 
--- Progress tracking (one row per user per game)
+-- Games
+CREATE TABLE games (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID REFERENCES rooms(id) ON DELETE CASCADE NOT NULL,
+  sport TEXT NOT NULL DEFAULT 'mlb',
+  title TEXT NOT NULL,
+  home_team TEXT NOT NULL,
+  away_team TEXT NOT NULL,
+  external_id TEXT,  -- MLB API game ID
+  is_live BOOLEAN DEFAULT FALSE,
+  created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- Progress Markers (Composite PK)
 CREATE TABLE progress_markers (
-  game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  pos INTEGER NOT NULL DEFAULT 0,
-  pos_meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+  game_id UUID REFERENCES games(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  pos INT NOT NULL DEFAULT 0,
+  pos_meta JSONB NOT NULL DEFAULT '{}',
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  joined_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (game_id, user_id)
 );
 
--- Messages with monotonic position
+-- Messages
 CREATE TABLE messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-  author_id UUID NOT NULL REFERENCES auth.users(id),
-  body TEXT NOT NULL,
-  kind VARCHAR(20) DEFAULT 'text',
-  pos INTEGER NOT NULL,
+  game_id UUID REFERENCES games(id) ON DELETE CASCADE NOT NULL,
+  author_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  body TEXT NOT NULL CHECK (char_length(body) <= 280),
+  pos INT NOT NULL,
   pos_meta JSONB NOT NULL,
+  is_deleted BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Optimized indexes
+-- Critical Indexes
 CREATE INDEX idx_messages_game_pos ON messages(game_id, pos, created_at);
-CREATE INDEX idx_progress_game_user ON progress_markers(game_id, user_id);
-CREATE INDEX idx_games_share_code ON games(share_code);
+CREATE INDEX idx_progress_markers_game_user ON progress_markers(game_id, user_id);
+CREATE INDEX idx_rooms_share_code ON rooms(share_code);
+CREATE INDEX idx_games_room_id ON games(room_id);
 ```
 
-### Row Level Security (RLS)
+### Row Level Security
 
 ```sql
 -- Enable RLS
+ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE games ENABLE ROW LEVEL SECURITY;
+ALTER TABLE room_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE progress_markers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
--- Users see games they're in
-CREATE POLICY "Users see games they're in" ON games
-  FOR SELECT USING (
-    id IN (
-      SELECT game_id FROM progress_markers WHERE user_id = auth.uid()
-    )
-  );
+-- Users see rooms they're members of
+CREATE POLICY "Users can view their rooms" ON rooms FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM room_members
+    WHERE room_members.room_id = rooms.id
+    AND room_members.user_id = auth.uid()
+  )
+);
 
--- Users see their own progress
-CREATE POLICY "Users see their progress" ON progress_markers
-  FOR ALL USING (user_id = auth.uid());
+-- Users see games in their rooms
+CREATE POLICY "Users can view games in their rooms" ON games FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM room_members
+    WHERE room_members.room_id = games.room_id
+    AND room_members.user_id = auth.uid()
+  )
+);
 
--- Users see messages in their games
-CREATE POLICY "Users see messages in their games" ON messages
-  FOR SELECT USING (
-    game_id IN (
-      SELECT game_id FROM progress_markers WHERE user_id = auth.uid()
-    )
-  );
+-- THE CRITICAL POLICY: Spoiler prevention
+CREATE POLICY "Users can view messages at or before their position"
+ON messages FOR SELECT USING (
+  NOT is_deleted
+  AND EXISTS (
+    SELECT 1 FROM progress_markers pm
+    WHERE pm.game_id = messages.game_id
+    AND pm.user_id = auth.uid()
+    AND messages.pos <= pm.pos  -- THE SPOILER FILTER
+  )
+);
+
+-- Users can only update their own progress
+CREATE POLICY "Users can update own progress"
+ON progress_markers FOR ALL USING (user_id = auth.uid());
 ```
 
 ## API Design
 
 ### RESTful Endpoints
 
-```typescript
-// Room/Game Management
-POST   /api/games                   // Create family room
-GET    /api/games                   // List my games
-POST   /api/games/join              // Join with share code
-GET    /api/games/:id               // Get game details
+```
+Room Management:
+POST   /api/rooms/create              Create room + game
+POST   /api/rooms/join                Join via share code
+DELETE /api/rooms/[roomId]            Delete room (owner only)
+GET    /api/rooms/[roomId]/members    Get member list
 
-// Progress
-GET    /api/games/:id/progress      // Get my position
-PATCH  /api/games/:id/progress      // Update position
-  Body: { pos: number, posMeta: MlbMeta }
+Game Management:
+GET    /api/games/schedule             Get today's MLB games
+GET    /api/games/[id]/room            Get room info for game
+GET    /api/games/[id]/state           Get live game state (MLB API)
+GET    /api/games/stats                Get room counts per game
 
-// Messages
-POST   /api/games/:id/messages      // Send reaction
-GET    /api/games/:id/messages      // Get visible messages (filtered)
+Progress Tracking:
+POST   /api/games/[id]/position        Update user position
 
-// Schedule (MLB Stats API integration)
-GET    /api/games/schedule          // Get today's MLB games
+Messages:
+GET    /api/games/[id]/messages        Get filtered messages
+POST   /api/games/[id]/messages        Send message
+
+User:
+GET    /api/users/me/rooms             Get my rooms
+GET    /api/users/[userId]/profile     Get user profile
 ```
 
-### Key API Implementation Examples
+### Key Implementation Patterns
 
-#### Message Filtering (Server-Side)
+#### 1. Server-Side Position Computation
 ```typescript
-// app/api/games/[id]/messages/route.ts
-export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const userId = await getCurrentUser();
-  const gameId = params.id;
+// ALWAYS compute position on server
+export async function POST(request: Request) {
+  const { body, posMeta } = await request.json();
 
-  // Get user's current position
-  const progress = await db.query.progress_markers.findFirst({
-    where: (pm, { and, eq }) => and(
-      eq(pm.gameId, gameId),
-      eq(pm.userId, userId)
-    )
+  // Server computes position, ignoring any client pos
+  const pos = encodeMlbPosition(posMeta);
+
+  await supabase.from('messages').insert({
+    body,
+    pos,        // Server-computed
+    pos_meta: posMeta,
+    author_id: user.id,
+    game_id: gameId
   });
-
-  const userPos = progress?.pos ?? 0;
-
-  // Filter in SQL, not in JavaScript
-  const visibleMessages = await db.execute(sql`
-    SELECT m.*, u.username, u.avatar_url
-    FROM messages m
-    JOIN users u ON m.author_id = u.id
-    WHERE m.game_id = ${gameId}
-      AND m.pos <= ${userPos}
-    ORDER BY m.pos, m.created_at
-  `);
-
-  return NextResponse.json({ messages: visibleMessages });
 }
 ```
 
-#### Position Update (Monotonic)
+#### 2. Monotonic Progress Updates
 ```typescript
-// app/api/games/[id]/progress/route.ts
-export async function PATCH(req: Request) {
-  const { posMeta } = await req.json();
-  const userId = await getCurrentUser();
-  const gameId = params.id;
-
-  // ALWAYS compute position server-side
-  const newPos = encodeMlbPosition(posMeta);
-
-  // UPSERT with condition: only update if newPos > currentPos
-  await db.execute(sql`
-    INSERT INTO progress_markers (game_id, user_id, pos, pos_meta)
-    VALUES (${gameId}, ${userId}, ${newPos}, ${posMeta})
-    ON CONFLICT (game_id, user_id)
-    DO UPDATE SET
-      pos = ${newPos},
-      pos_meta = ${posMeta},
-      updated_at = NOW()
-    WHERE progress_markers.pos < ${newPos}
-  `);
-
-  return NextResponse.json({ success: true, pos: newPos });
-}
+// Only update if moving forward
+await supabase
+  .from('progress_markers')
+  .upsert({
+    game_id: gameId,
+    user_id: userId,
+    pos: newPos,
+    pos_meta: newPosMeta,
+    updated_at: new Date().toISOString()
+  }, {
+    onConflict: 'game_id,user_id'
+  });
 ```
 
-## Security & Critical Rules
+#### 3. Message Filtering
+```typescript
+// RLS automatically filters, but we verify access first
+const { data: membership } = await supabase
+  .from('room_members')
+  .select('id')
+  .eq('room_id', roomId)
+  .eq('user_id', user.id)
+  .single();
+
+if (!membership) {
+  return NextResponse.json({ error: 'Not a room member' }, { status: 403 });
+}
+
+// Fetch messages - RLS filters based on user's position
+const { data: messages } = await supabase
+  .from('messages')
+  .select(`
+    id,
+    body,
+    pos,
+    pos_meta,
+    created_at,
+    profiles:author_id (username, avatar_url)
+  `)
+  .eq('game_id', gameId)
+  .eq('is_deleted', false)
+  .order('pos', { ascending: true });
+```
+
+## Security Rules
 
 ### 1. Outs Are 0-2 Only (Never 3)
 ```typescript
 // CORRECT
 export interface MlbMeta {
-  outs: 0 | 1 | 2 | 'END';  // 0-2 during play, END at half conclusion
+  outs: 0 | 1 | 2 | 'END';
 }
 
-// When 3rd out is recorded, the half ends and we move to:
-// - Bottom half if top just ended
-// - Next inning if bottom just ended
+// When 3rd out is recorded, move to END state
+// Then advance to next half/inning
 ```
 
 ### 2. Always Compute Position Server-Side
+Never trust client-provided `pos` value. Always recompute from `posMeta`.
+
+### 3. Monotonic Progress
+Progress can only move forward. Use upsert with proper conflict resolution.
+
+### 4. RLS Enforcement
+All message filtering happens at database level via RLS policies. Client-side filtering is for UX only.
+
+### 5. No Spoilers in Presence/Notifications
 ```typescript
-// NEVER trust client position
-export async function POST(req: Request) {
-  const { body, posMeta } = await req.json();
+// BAD - reveals position
+"Dad is at Top 7th"
 
-  // Server computes position, ignoring any client-provided pos
-  const pos = encodeMlbPosition(posMeta);
-
-  await db.insert(messages).values({
-    body,
-    pos,        // Server-computed, not from client
-    posMeta,
-    // ...
-  });
-}
+// GOOD - obfuscated
+"New reactions available"
 ```
 
-### 3. Monotonic Progress (Never Regress)
-Progress can only move forward. This is enforced in the database update with a WHERE clause.
+### 6. Share Code Security
+- 6 characters, alphanumeric (no O/0/I/1)
+- Validated server-side
+- Unique constraint in database
+- Rate limiting recommended (not yet implemented)
 
-### 4. Server-Side Message Filtering
-Messages must ALWAYS be filtered in SQL queries, never relying solely on client-side filtering.
+## Project Structure
 
-### 5. No Spoilers in Notifications
-```typescript
-// BAD - reveals content
-{ title: "Dad: Rizzo crushed that!" }
-
-// GOOD - neutral hint
-{ title: "New reactions available", body: "WatchLock" }
-```
-
-## Component Architecture
-
-### Project Structure
 ```
 watch-lock/
 ├── app/
-│   ├── (auth)/              # Auth routes (login, signup)
-│   ├── (app)/               # Protected app routes
-│   │   ├── dashboard/       # Game list
-│   │   └── games/
-│   │       ├── [id]/        # Game room
-│   │       ├── create/      # Create game
-│   │       └── join/        # Join with code
-│   ├── api/
-│   │   └── games/           # API routes
-│   ├── layout.tsx
-│   └── page.tsx
+│   ├── api/                    # API routes
+│   │   ├── rooms/              # Room management
+│   │   ├── games/              # Game + message APIs
+│   │   └── users/              # User APIs
+│   ├── auth/callback/          # OAuth callback
+│   ├── games/[id]/             # Game room page
+│   ├── games/page.tsx          # Game browser
+│   └── profile/                # User profiles
+│
 ├── components/
-│   ├── game/                # Game-specific components
-│   │   ├── GameHeader.tsx
-│   │   ├── ProgressSlider.tsx
+│   ├── game/                   # Game-specific UI
 │   │   ├── MessageFeed.tsx
-│   │   └── MessageComposer.tsx
-│   ├── ui/                  # shadcn/ui components
-│   └── providers/           # Context providers
+│   │   ├── MessageComposer.tsx
+│   │   ├── ProgressSlider.tsx
+│   │   └── GameStateCard.tsx
+│   ├── room/                   # Room UI
+│   └── shared/                 # App-wide components
+│
 ├── lib/
-│   ├── db/                  # Database client
-│   ├── position.ts          # Position encoding
-│   ├── game-logic.ts        # Filtering logic
-│   ├── share-codes.ts       # Code generation
-│   └── hooks/               # React hooks
-└── types/
-    └── index.ts
+│   ├── position.ts             # Position encoding/decoding
+│   ├── services/               # External API clients
+│   │   ├── mlbSchedule.ts
+│   │   ├── mlbGameState.ts
+│   │   └── nflSchedule.ts
+│   ├── supabase/               # Supabase clients
+│   │   ├── client.ts           # Browser client
+│   │   └── server.ts           # Server client
+│   └── db/schema.ts            # Drizzle schema
+│
+├── supabase/migrations/        # Database migrations
+└── types/                      # TypeScript types
 ```
 
-### Key Components
+## Critical Code Paths
 
-#### ProgressSlider
-The hero component that controls what the user sees.
+### Message Send Flow
+1. User composes message at current position
+2. Client sends `{ body, posMeta }` to API
+3. Server authenticates user
+4. Server validates room membership
+5. **Server computes `pos` from `posMeta`**
+6. Server inserts message with computed `pos`
+7. RLS allows insert (user is room member)
+8. Other users poll/subscribe for new messages
+9. **RLS filters messages by each user's position**
 
-```typescript
-// components/game/ProgressSlider.tsx
-export function ProgressSlider({ gameId, currentPos, onUpdate }) {
-  const [inning, setInning] = useState(1);
-  const [half, setHalf] = useState<'TOP' | 'BOTTOM'>('TOP');
-  const [outs, setOuts] = useState<0 | 1 | 2 | 'END'>(0);
-
-  const handleUpdate = async () => {
-    const posMeta: MlbMeta = { sport: 'mlb', inning, half, outs };
-    await fetch(`/api/games/${gameId}/progress`, {
-      method: 'PATCH',
-      body: JSON.stringify({ posMeta })
-    });
-    onUpdate();
-  };
-
-  return (
-    <div>
-      {/* Inning selector 1-9+ */}
-      {/* Top/Bottom toggle */}
-      {/* Outs: 0, 1, 2, END */}
-      {/* [Update Progress] button */}
-    </div>
-  );
-}
-```
-
-#### MessageFeed
-Displays filtered messages with real-time updates.
-
-```typescript
-// components/game/MessageFeed.tsx
-export function MessageFeed({ gameId }) {
-  const [messages, setMessages] = useState<Message[]>([]);
-
-  useEffect(() => {
-    // Initial load - already filtered by server
-    fetch(`/api/games/${gameId}/messages`)
-      .then(res => res.json())
-      .then(data => setMessages(data.messages));
-
-    // Real-time subscription
-    const channel = supabase
-      .channel(`game-${gameId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `game_id=eq.${gameId}`
-      }, (payload) => {
-        // Re-fetch to ensure proper filtering
-        refetch();
-      })
-      .subscribe();
-
-    return () => { channel.unsubscribe(); };
-  }, [gameId]);
-
-  return (
-    <div className="space-y-4">
-      {messages.map(msg => (
-        <MessageCard key={msg.id} message={msg} />
-      ))}
-    </div>
-  );
-}
-```
-
-## Development Workflow
-
-### Setup
-```bash
-# Clone and install
-git clone https://github.com/yourusername/watch-lock.git
-cd watch-lock
-npm install
-
-# Environment
-cp .env.example .env.local
-# Add Supabase keys: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-# Run migrations
-npm run db:push
-
-# Development server
-npm run dev
-```
-
-### Testing
-```bash
-# Unit tests
-npm run test
-
-# E2E tests
-npm run test:e2e
-
-# Spoiler prevention suite
-npm run test:spoilers
-
-# Watch mode during development
-npm run test:watch
-```
-
-### Deployment
-```bash
-# Build
-npm run build
-
-# Preview production build
-npm run start
-
-# Deploy to Vercel
-vercel deploy --prod
-```
-
-## Tech Stack
-
-### Frontend
-- **Next.js 15** - App Router, Server Components
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **shadcn/ui** - Component library
-- **Framer Motion** - Animations
-
-### Backend
-- **Supabase** - PostgreSQL, Auth, Realtime
-- **Drizzle ORM** - Type-safe database queries
-- **Vercel** - Edge Functions, Deployment
-
-### State Management
-- **Zustand** - Client state
-- **React Query** - Server state (future)
-
-### Testing
-- **Jest** - Unit tests
-- **React Testing Library** - Component tests
-- **Playwright** - E2E tests
-
-### Data Sources
-- **MLB Stats API** - Free, no-key API for live game data
-
-## Key Development Principles
-
-1. **No Spoilers Ever** - All filtering server-side, bulletproof
-2. **Family First** - 2-6 private members, simple UX
-3. **Position is King** - The monotonic integer drives everything
-4. **Mobile Native** - Touch-first, responsive design
-5. **Test Critical Paths** - 100% coverage on spoiler prevention
-
-## Contributing
-
-See [TESTING.md](./TESTING.md) for detailed testing requirements before submitting PRs.
-
-### Critical Tests Required
-- Position encoding accuracy
-- Message filtering correctness
-- Monotonic progress enforcement
-- Real-time update filtering
-- E2E spoiler prevention
+### Position Update Flow
+1. User adjusts slider to new position
+2. Client sends `{ pos, posMeta }` to API
+3. Server authenticates user
+4. Server validates room membership
+5. **Server recomputes `pos` from `posMeta`** (ignores client pos)
+6. Server upserts progress_markers
+7. Client refetches messages
+8. **RLS returns only messages where pos <= user.pos**
 
 ---
 
-**For architecture decisions and rationale, see [PLANNING.md](./PLANNING.md)**
+**See [TYPES.md](./TYPES.md) for type definitions.**

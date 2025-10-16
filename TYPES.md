@@ -1,533 +1,259 @@
-# WatchLock Type Definitions
+# WatchLock Type Reference
 
-## Core Position System Types
+Core TypeScript types for the position system, database schema, and API contracts.
+
+## Position System Types
 
 ```typescript
-// The heart of WatchLock - monotonic position system
 export interface Position {
-  pos: number; // Monotonic integer (0, 1, 2, ...)
-  posMeta: PositionMeta; // Sport-specific metadata
+  pos: number;                    // Monotonic integer
+  posMeta: MlbMeta | NflMeta;     // Sport-specific metadata
 }
-
-export type PositionMeta = MlbMeta | NbaMeta | NflMeta;
 
 export interface MlbMeta {
-  sport: "mlb";
-  inning: number; // 1-9+ (extra innings allowed, no max)
-  half: "TOP" | "BOTTOM";
-  outs: 0 | 1 | 2; // Only 0-2, never 3
-}
-
-export interface NbaMeta {
-  sport: "nba";
-  quarter: 1 | 2 | 3 | 4 | 5; // 5 = OT
-  minutes: number; // 0-12 (counting down)
-  seconds: number; // 0-59
+  sport: 'mlb';
+  inning: number;                 // 1-9+ (extra innings allowed)
+  half: 'TOP' | 'BOTTOM';
+  outs: 0 | 1 | 2 | 'END';        // 0-2 during play, END at half conclusion
+  phase?: 'PREGAME' | 'IN_PROGRESS' | 'POSTGAME';
 }
 
 export interface NflMeta {
-  sport: "nfl";
-  quarter: 1 | 2 | 3 | 4 | 5; // 5 = OT
-  minutes: number; // 0-15 (counting down)
-  seconds: number; // 0-59
+  sport: 'nfl';
+  quarter: 1 | 2 | 3 | 4 | 5;     // 5 = OT
+  time: string;                   // "MM:SS" format (e.g., "10:32")
+  possession?: 'home' | 'away' | null;
+  phase?: 'PREGAME' | 'Q1' | 'Q2' | 'HALFTIME' | 'Q3' | 'Q4' | 'OVERTIME' | 'POSTGAME';
 }
 ```
 
 ## Database Types
 
 ```typescript
-// Room (family group) types
+// Profiles (extends auth.users)
+export interface Profile {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+// Rooms
 export interface Room {
   id: string;
   name: string;
-  shareCode: string;
-  maxMembers: number;
-  isPrivate: boolean;
-  createdBy: string;
-  createdAt: Date;
+  share_code: string;             // 6 chars, uppercase
+  max_members: number;
+  created_by: string;
+  created_at: Date;
+  last_activity_at: Date;
+  is_archived: boolean;
+  archived_at: Date | null;
 }
 
-// Game types
+// Room Membership
+export interface RoomMember {
+  id: string;
+  room_id: string;
+  user_id: string;
+  role: 'owner' | 'admin' | 'member';
+  joined_at: Date;
+  last_viewed_at: Date;
+  is_favorite: boolean;
+}
+
+// Games
 export interface Game {
   id: string;
-  roomId: string;
-  sport: "mlb" | "nba" | "nfl";
+  room_id: string;
+  sport: 'mlb' | 'nba' | 'nfl';
   title: string;
-  homeTeam: string;
-  awayTeam: string;
-  startTime: Date | null;
-  endTime: Date | null;
-  isActive: boolean;
-  createdAt: Date;
+  home_team: string;
+  away_team: string;
+  external_id: string | null;     // e.g., "mlb-746532"
+  scheduled_start: Date | null;
+  actual_start: Date | null;
+  actual_end: Date | null;
+  is_active: boolean;
+  is_live: boolean;
+  created_at: Date;
+  created_by: string;
 }
 
-// Progress tracking
+// Progress Markers
 export interface ProgressMarker {
-  gameId: string;
-  userId: string;
+  game_id: string;
+  user_id: string;
   pos: number;
-  posMeta: PositionMeta;
-  updatedAt: Date;
-  joinedAt: Date;
+  pos_meta: MlbMeta | NflMeta;    // JSONB
+  updated_at: Date;
+  joined_at: Date;
 }
 
-// Message types
+// Messages
 export interface Message {
   id: string;
-  gameId: string;
-  authorId: string;
+  game_id: string;
+  author_id: string;
   body: string;
-  kind: MessageKind;
+  kind: 'text' | 'emoji' | 'reaction';
   pos: number;
-  posMeta: PositionMeta;
-  createdAt: Date;
-}
-
-export type MessageKind = "text" | "emoji" | "reaction";
-
-// User with profile
-export interface User {
-  id: string;
-  email: string;
-  username: string;
-  avatarUrl?: string;
-  createdAt: Date;
-}
-
-// Room membership
-export interface RoomMember {
-  roomId: string;
-  userId: string;
-  role: "owner" | "member";
-  joinedAt: Date;
-  user?: User; // Joined data
+  pos_meta: MlbMeta | NflMeta;    // JSONB
+  is_deleted: boolean;
+  deleted_at: Date | null;
+  created_at: Date;
 }
 ```
 
 ## API Types
 
+### Room Management
+
 ```typescript
-// Room Management
+// POST /api/rooms/create
 export interface CreateRoomRequest {
+  gameId: string;          // External ID (e.g., "mlb-746532")
   name: string;
-  maxMembers?: number; // Default: 6
+  maxMembers?: number;     // Default: 10
+  homeTeam: string;
+  awayTeam: string;
 }
 
 export interface CreateRoomResponse {
-  room: Room;
+  roomId: string;
   shareCode: string;
+  gameId: string;          // External ID
+  success: boolean;
 }
 
+// POST /api/rooms/join
 export interface JoinRoomRequest {
   shareCode: string;
 }
 
 export interface JoinRoomResponse {
-  room: Room;
-  members: RoomMember[];
-  activeGame?: Game;
+  roomId: string;
+  gameId: string;          // External ID
+  memberCount: number;
+  success: boolean;
 }
 
-// Game Management
-export interface StartGameRequest {
-  sport: "mlb" | "nba" | "nfl";
-  title: string;
-  homeTeam: string;
-  awayTeam: string;
-  startTime?: Date;
-}
-
-export interface StartGameResponse {
-  game: Game;
-}
-
-// Progress Updates
-export interface UpdateProgressRequest {
-  pos: number;
-  posMeta: PositionMeta;
-}
-
-export interface GetProgressResponse {
-  myProgress: ProgressMarker;
-  otherProgress: ObfuscatedProgress[];
-}
-
-export interface ObfuscatedProgress {
-  userId: string;
-  username: string;
-  hint: "behind" | "near" | "ahead" | "live";
-}
-
-// Messages
-export interface SendMessageRequest {
-  body: string;
-  kind?: MessageKind;
-}
-
-export interface GetMessagesResponse {
-  messages: MessageWithAuthor[];
-  hasMore: boolean;
-  hiddenCount: number; // Messages ahead of user's position
-}
-
-export interface MessageWithAuthor extends Message {
-  author: {
-    id: string;
-    username: string;
-    avatarUrl?: string;
-  };
-}
-```
-
-## Real-time Event Types
-
-```typescript
-export type RealtimeEvent =
-  | MessageCreatedEvent
-  | ProgressUpdatedEvent
-  | MemberJoinedEvent
-  | GameStartedEvent
-  | GameEndedEvent;
-
-export interface MessageCreatedEvent {
-  type: "MESSAGE_CREATED";
-  payload: {
-    message: MessageWithAuthor;
-    gameId: string;
-  };
-}
-
-export interface ProgressUpdatedEvent {
-  type: "PROGRESS_UPDATED";
-  payload: {
+// GET /api/rooms/[roomId]/members
+export interface RoomMembersResponse {
+  members: Array<{
     userId: string;
     username: string;
+    avatarUrl: string | null;
+    role: 'owner' | 'admin' | 'member';
+    position: {
+      pos: number;
+      posMeta: MlbMeta | NflMeta;
+      updatedAt: Date;
+    } | null;
+    messageCount: number;
+    joinedAt: Date;
+  }>;
+  success: boolean;
+}
+```
+
+### Progress & Messages
+
+```typescript
+// POST /api/games/[id]/position
+export interface UpdateProgressRequest {
+  pos: number;
+  posMeta: MlbMeta | NflMeta;
+}
+
+// POST /api/games/[id]/messages
+export interface SendMessageRequest {
+  body: string;
+  pos: number;
+  posMeta: MlbMeta | NflMeta;
+}
+
+// GET /api/games/[id]/messages
+export interface GetMessagesResponse {
+  messages: Array<{
+    id: string;
+    authorId: string;
+    username: string;
+    avatarUrl: string | null;
+    body: string;
     pos: number;
-    hint: "behind" | "near" | "ahead" | "live";
-  };
-}
-
-export interface MemberJoinedEvent {
-  type: "MEMBER_JOINED";
-  payload: {
-    member: RoomMember;
-    roomId: string;
-  };
-}
-
-export interface GameStartedEvent {
-  type: "GAME_STARTED";
-  payload: {
-    game: Game;
-  };
-}
-
-export interface GameEndedEvent {
-  type: "GAME_ENDED";
-  payload: {
-    gameId: string;
-    finalPos: number;
-  };
+    posMeta: MlbMeta | NflMeta;
+    createdAt: Date;
+  }>;
+  success: boolean;
 }
 ```
 
-## Client State Types
+### Game Data
 
 ```typescript
-// Room state
-export interface RoomState {
-  currentRoom: Room | null;
-  members: RoomMember[];
-  activeGame: Game | null;
-  isLoading: boolean;
-  error: string | null;
-}
-
-// Game state
-export interface GameState {
-  game: Game | null;
-  messages: MessageWithAuthor[];
-  visibleMessages: MessageWithAuthor[];
-  myProgress: ProgressMarker | null;
-  otherProgress: ObfuscatedProgress[];
-  isLive: boolean;
-  isLoading: boolean;
-  error: string | null;
-}
-
-// Auth state
-export interface AuthState {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
-}
-
-// Notification state
-export interface NotificationState {
-  hiddenMessageCount: number;
-  lastCheckedPos: number;
-  hasNewBatch: boolean;
-}
-```
-
-## Utility Types
-
-```typescript
-// Position encoding/decoding
-export interface PositionEncoder {
-  encode(meta: PositionMeta): number;
-  decode(pos: number, sport: string): PositionMeta;
-  format(meta: PositionMeta): string;
-}
-
-// Share code generator
-export interface ShareCodeGenerator {
-  generate(): string;
-  validate(code: string): boolean;
-}
-
-// Message filter
-export interface MessageFilter {
-  filter(messages: Message[], userPos: number): Message[];
-  getHiddenCount(messages: Message[], userPos: number): number;
-}
-
-// Progress obfuscator
-export interface ProgressObfuscator {
-  obfuscate(
-    userPos: number,
-    otherPos: number
-  ): "behind" | "near" | "ahead" | "live";
-  generateHint(hiddenCount: number, nextMilestone: number): string;
-}
-```
-
-## Form Types
-
-```typescript
-export interface LoginFormData {
-  email: string;
-  password: string;
-}
-
-export interface SignupFormData {
-  email: string;
-  username: string;
-  password: string;
-  confirmPassword: string;
-}
-
-export interface RoomFormData {
-  name: string;
-  maxMembers: number;
-}
-
-export interface GameFormData {
-  sport: "mlb" | "nba" | "nfl";
-  title: string;
+// GET /api/games/schedule
+export interface ScheduleGame {
+  id: string;              // External ID
+  gamePk: number;          // MLB API game ID
   homeTeam: string;
   awayTeam: string;
+  startTime: string;
+  status: string;
+  inning?: string;
+  score?: {
+    home: number;
+    away: number;
+  };
 }
 
-export interface JoinFormData {
-  shareCode: string;
-}
-```
-
-## Component Props Types
-
-```typescript
-// Layout props
-export interface LayoutProps {
-  children: React.ReactNode;
-}
-
-// Page props
-export interface PageProps {
-  params: { [key: string]: string };
-  searchParams: { [key: string]: string | string[] | undefined };
+// GET /api/games/[id]/state
+export interface GameState {
+  gameId: string;
+  status: string;
+  inning: string;
+  inningState: string;
+  outs: number;
+  balls: number;
+  strikes: number;
+  score: {
+    home: number;
+    away: number;
+  };
 }
 
-// Core component props
-export interface RoomCardProps {
-  room: Room;
-  memberCount: number;
-  activeGame?: Game;
-  onEnter: () => void;
-}
-
-export interface GameHeaderProps {
-  game: Game;
-  room: Room;
-  memberCount: number;
-  onShareCode: () => void;
-}
-
-export interface ProgressControlProps {
-  sport: "mlb" | "nba" | "nfl";
-  position: Position;
-  onChange: (position: Position) => void;
-  isLive?: boolean;
-  maxPosition?: number;
-}
-
-export interface MessageFeedProps {
-  messages: MessageWithAuthor[];
-  currentUserId: string;
-  userPosition: number;
-  onLoadMore?: () => void;
-  hasMore?: boolean;
-  hiddenCount?: number;
-}
-
-export interface MessageCardProps {
-  message: MessageWithAuthor;
-  isOwn: boolean;
-  showPosition?: boolean;
-}
-
-export interface MessageComposerProps {
-  onSend: (body: string, kind?: MessageKind) => void;
-  disabled?: boolean;
-  placeholder?: string;
-  currentPosition: Position;
-}
-
-// Modal props
-export interface CreateRoomModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: (room: Room) => void;
-}
-
-export interface JoinRoomModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: (room: Room) => void;
-}
-
-export interface StartGameModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: (game: Game) => void;
-  roomId: string;
-}
-```
-
-## Hook Return Types
-
-```typescript
-export interface UseRoomReturn {
-  room: Room | null;
-  members: RoomMember[];
-  activeGame: Game | null;
-  isLoading: boolean;
-  error: string | null;
-  createRoom: (data: RoomFormData) => Promise<Room>;
-  joinRoom: (shareCode: string) => Promise<Room>;
-  leaveRoom: () => Promise<void>;
-}
-
-export interface UseGameReturn {
-  game: Game | null;
-  messages: MessageWithAuthor[];
-  visibleMessages: MessageWithAuthor[];
-  myProgress: ProgressMarker | null;
-  otherProgress: ObfuscatedProgress[];
-  isLive: boolean;
-  isLoading: boolean;
-  error: string | null;
-  sendMessage: (body: string, kind?: MessageKind) => Promise<void>;
-  updateProgress: (position: Position) => Promise<void>;
-  startGame: (data: GameFormData) => Promise<Game>;
-  endGame: () => Promise<void>;
-}
-
-export interface UseAuthReturn {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (data: SignupFormData) => Promise<void>;
-  logout: () => Promise<void>;
-  updateProfile: (username: string, avatarUrl?: string) => Promise<void>;
-}
-
-export interface UseRealtimeReturn {
-  isConnected: boolean;
-  subscribe: (
-    channel: string,
-    callback: (event: RealtimeEvent) => void
-  ) => void;
-  unsubscribe: (channel: string) => void;
-  presence: Map<string, any>;
-}
-```
-
-## Error Types
-
-```typescript
-export class WatchLockError extends Error {
-  constructor(message: string, public code: ErrorCode, public details?: any) {
-    super(message);
-    this.name = "WatchLockError";
-  }
-}
-
-export enum ErrorCode {
-  // Auth errors
-  AUTH_REQUIRED = "AUTH_REQUIRED",
-  INVALID_CREDENTIALS = "INVALID_CREDENTIALS",
-  USER_EXISTS = "USER_EXISTS",
-
-  // Room errors
-  ROOM_NOT_FOUND = "ROOM_NOT_FOUND",
-  ROOM_FULL = "ROOM_FULL",
-  ALREADY_MEMBER = "ALREADY_MEMBER",
-  INVALID_SHARE_CODE = "INVALID_SHARE_CODE",
-
-  // Game errors
-  GAME_NOT_FOUND = "GAME_NOT_FOUND",
-  GAME_ALREADY_ACTIVE = "GAME_ALREADY_ACTIVE",
-  NOT_IN_GAME = "NOT_IN_GAME",
-
-  // Message errors
-  MESSAGE_TOO_LONG = "MESSAGE_TOO_LONG",
-  RATE_LIMIT = "RATE_LIMIT",
-
-  // Network errors
-  NETWORK_ERROR = "NETWORK_ERROR",
-  REALTIME_ERROR = "REALTIME_ERROR",
+// GET /api/games/[id]/room
+export interface RoomInfoResponse {
+  room: {
+    id: string;
+    name: string;
+    shareCode: string;
+    maxMembers: number;
+    memberCount: number;
+    createdBy: string;
+    isOwner: boolean;
+    createdAt: Date;
+  };
 }
 ```
 
 ## Constants
 
 ```typescript
-export const LIMITS = {
-  MAX_ROOM_MEMBERS: 6,
-  MAX_MESSAGE_LENGTH: 280,
-  MAX_ROOMS_FREE: 2,
-  MAX_MESSAGES_FREE: 100,
-  SHARE_CODE_LENGTH: 6,
+export const POSITION_CONSTANTS = {
+  MLB_PREGAME: -1,
+  MLB_POSTGAME: 1_000_000,
+  NFL_PREGAME: -1,
+  NFL_POSTGAME: 2_000_000,
+  MLB_POSITIONS_PER_INNING: 8,
+  NFL_SECONDS_PER_QUARTER: 900,
 } as const;
 
-export const SPORTS = {
-  MLB: {
-    maxInnings: 9,
-    positionsPerInning: 6,
-    overtimeInnings: 18,
-  },
-  NBA: {
-    quartersRegular: 4,
-    minutesPerQuarter: 12,
-    overtimePeriods: 4,
-  },
-  NFL: {
-    quartersRegular: 4,
-    minutesPerQuarter: 15,
-    overtimePeriod: 1,
-  },
+export const LIMITS = {
+  MAX_ROOM_MEMBERS: 10,
+  MAX_MESSAGE_LENGTH: 280,
+  SHARE_CODE_LENGTH: 6,
 } as const;
 ```

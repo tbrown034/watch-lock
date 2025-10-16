@@ -73,24 +73,13 @@ export default function Home() {
 
           {/* Main CTA */}
           <div className="space-y-4">
-            {user ? (
-              <Link
-                href="/games"
-                className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md inline-flex items-center gap-2.5 text-base"
-              >
-                <span>Explore Game Rooms</span>
-                <Building2 className="h-5 w-5" />
-              </Link>
-            ) : (
-              <button
-                onClick={handleSignIn}
-                disabled={loading}
-                className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md inline-flex items-center gap-2.5 text-base disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span>{loading ? 'Loading...' : 'Explore Game Rooms'}</span>
-                <Building2 className="h-5 w-5" />
-              </button>
-            )}
+            <Link
+              href="/games"
+              className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md inline-flex items-center gap-2.5 text-base"
+            >
+              <span>Explore Game Rooms</span>
+              <Building2 className="h-5 w-5" />
+            </Link>
 
             <div className="flex flex-wrap justify-center gap-2 text-sm font-medium">
               {audiencePills.map((label) => (

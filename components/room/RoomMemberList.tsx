@@ -8,7 +8,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, Crown, Clock } from 'lucide-react'
+import Link from 'next/link'
+import { Users, Crown, Clock, MessageSquare } from 'lucide-react'
 
 interface Member {
   userId: string
@@ -25,6 +26,7 @@ interface Member {
     }
     updatedAt?: string
   } | null
+  messageCount: number
   joinedAt: string
 }
 
@@ -161,9 +163,10 @@ export function RoomMemberList({ roomId, refreshInterval = 30000 }: RoomMemberLi
       ) : (
         <div className="space-y-3">
           {members.map((member) => (
-            <div
+            <Link
               key={member.userId}
-              className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              href={`/profile/${member.userId}`}
+              className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
             >
               {/* Avatar */}
               <div className="relative shrink-0">
@@ -205,14 +208,21 @@ export function RoomMemberList({ roomId, refreshInterval = 30000 }: RoomMemberLi
                   {formatPosition(member.position)}
                 </p>
 
-                {member.position?.updatedAt && (
-                  <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                    <Clock className="w-3 h-3" />
-                    <span>{getTimeAgo(member.position.updatedAt)}</span>
+                <div className="flex items-center gap-3">
+                  {member.position?.updatedAt && (
+                    <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                      <Clock className="w-3 h-3" />
+                      <span>{getTimeAgo(member.position.updatedAt)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                    <MessageSquare className="w-3 h-3" />
+                    <span>{member.messageCount} {member.messageCount === 1 ? 'message' : 'messages'}</span>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

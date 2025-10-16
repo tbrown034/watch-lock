@@ -73,18 +73,10 @@ export async function GET(
       )
     }
 
-    // Get all room members with their profiles and progress
+    // Get all room members
     const { data: members, error: membersError } = await supabase
       .from('room_members')
-      .select(`
-        user_id,
-        role,
-        joined_at,
-        profiles:user_id (
-          username,
-          avatar_url
-        )
-      `)
+      .select('user_id, role, joined_at')
       .eq('room_id', roomId)
       .order('joined_at', { ascending: true })
 
@@ -94,6 +86,18 @@ export async function GET(
         { error: 'Failed to fetch room members' },
         { status: 500 }
       )
+    }
+
+    // Get profiles for all members
+    const userIds = members.map((m: any) => m.user_id)
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url')
+      .in('id', userIds)
+
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError)
+      // Non-fatal - continue without profiles
     }
 
     // Get progress markers for all members
@@ -107,20 +111,39 @@ export async function GET(
       // Non-fatal - return members without progress
     }
 
-    // Combine members with their progress
+    // Get message counts for all members in this game
+    const { data: messageCounts, error: messageCountError } = await supabase
+      .from('messages')
+      .select('author_id')
+      .eq('game_id', game.id)
+
+    if (messageCountError) {
+      console.error('Error fetching message counts:', messageCountError)
+      // Non-fatal - continue without message counts
+    }
+
+    // Count messages per user
+    const messageCountsByUser: Record<string, number> = {}
+    messageCounts?.forEach((msg: any) => {
+      messageCountsByUser[msg.author_id] = (messageCountsByUser[msg.author_id] || 0) + 1
+    })
+
+    // Combine members with their profiles and progress
     const membersWithProgress = members.map((member: any) => {
+      const profile = profiles?.find(p => p.id === member.user_id)
       const progress = progressMarkers?.find(p => p.user_id === member.user_id)
 
       return {
         userId: member.user_id,
-        username: member.profiles?.username || 'Unknown',
-        avatarUrl: member.profiles?.avatar_url,
+        username: profile?.username || 'Unknown',
+        avatarUrl: profile?.avatar_url,
         role: member.role,
         position: progress ? {
           pos: progress.pos,
           posMeta: progress.pos_meta,
           updatedAt: progress.updated_at
         } : null,
+        messageCount: messageCountsByUser[member.user_id] || 0,
         joinedAt: member.joined_at
       }
     })

@@ -6,6 +6,7 @@ export interface MlbScheduleGame {
   homeTeam: string;
   awayTeam: string;
   startTime: string;
+  gameDate: string; // ISO date string from API
   venue?: string;
   status?: string;
   detailedState?: string;
@@ -107,6 +108,7 @@ export async function fetchTodayMlbGames(timezone: string = UI_CONFIG.TIMEZONE):
       homeTeam: game.teams.home.team.name,
       awayTeam: game.teams.away.team.name,
       startTime: formatStartTime(game.gameDate, timezone),
+      gameDate: game.gameDate, // Include the ISO date string
       venue: game.venue?.name,
       status: game.status?.abstractGameState,
       detailedState: game.status?.detailedState,
