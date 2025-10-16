@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       const { data: game } = await supabase
         .from('games')
         .select('external_id')
-        .eq('room_id', room.id)
+        .eq('id', room.game_id) // FIXED: Use room.game_id not room_id
         .single()
 
       return NextResponse.json({
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     const { data: game, error: gameError } = await supabase
       .from('games')
       .select('id, external_id')
-      .eq('room_id', room.id)
+      .eq('id', room.game_id) // FIXED: Use room.game_id
       .single()
 
     if (gameError) {

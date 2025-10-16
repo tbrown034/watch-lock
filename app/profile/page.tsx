@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { ArrowLeft, Calendar, Clock, Mail, User as UserIcon, LogOut, Users, Trash2, ExternalLink, Edit2, X, Check, Share2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Mail, User as UserIcon, LogOut, Users, Trash2, ExternalLink, Edit2, X, Check, Share2, PlayCircle } from 'lucide-react';
 import Link from 'next/link';
+import { RoomJoinModal } from '@/components/room/RoomJoinModal';
 
 interface Profile {
   id: string;
-  username: string;
   display_name: string | null;
   avatar_url: string | null;
   created_at: string;
@@ -41,6 +41,7 @@ export default function ProfilePage() {
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [shareModalRoom, setShareModalRoom] = useState<Room | null>(null);
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -118,6 +119,9 @@ export default function ProfilePage() {
       });
 
       setIsEditingName(false);
+
+      // Dispatch event to update AuthHeader
+      window.dispatchEvent(new Event('profileUpdated'));
     } catch (error) {
       console.error('Error updating display name:', error);
       setNameError(error instanceof Error ? error.message : 'Failed to update name');
@@ -170,6 +174,11 @@ export default function ProfilePage() {
       console.error('Failed to copy share code:', error);
       alert('Failed to copy share code. Please copy manually: ' + shareCode);
     }
+  };
+
+  const handleJoinSuccess = (gameId: string) => {
+    setShowJoinModal(false);
+    router.push(`/games/${gameId}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -240,12 +249,12 @@ export default function ProfilePage() {
                           type="text"
                           value={editedDisplayName}
                           onChange={(e) => setEditedDisplayName(e.target.value)}
-                          placeholder={profile.username}
+                          placeholder="Your display name"
                           className="w-full px-3 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-100 text-sm"
                           maxLength={50}
                         />
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                          Leave empty to use username: @{profile.username}
+                          This is your display name - typically your first name, but you can change it to anything you like.
                         </p>
                       </div>
                       {nameError && (
@@ -276,7 +285,7 @@ export default function ProfilePage() {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
-                          {profile.display_name || user.user_metadata?.full_name || profile.username}
+                          {profile.display_name || user.user_metadata?.given_name || 'User'}
                         </h1>
                         <button
                           onClick={handleEditName}
@@ -286,13 +295,35 @@ export default function ProfilePage() {
                           <Edit2 className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                         </button>
                       </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">@{profile.username}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{user.email}</p>
                     </div>
                   )}
                 </div>
               </div>
             </div>
+
+          {/* Quick Actions Section */}
+          <div className="p-6 border-b border-slate-200 dark:border-slate-700 space-y-3">
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">
+              Quick Actions
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Link
+                href="/games"
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg active:scale-95 text-sm group"
+              >
+                <PlayCircle className="w-5 h-5 group-hover:scale-110 transition-transform" strokeWidth={2} />
+                <span>View Today's Games</span>
+              </Link>
+              <button
+                onClick={() => setShowJoinModal(true)}
+                className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 font-semibold rounded-lg transition-colors text-sm group"
+              >
+                <Users className="w-5 h-5 group-hover:scale-110 transition-transform" strokeWidth={2} />
+                <span>Join a Room</span>
+              </button>
+            </div>
+          </div>
 
           {/* Stats Section */}
           <div className="p-6 space-y-4">
@@ -416,6 +447,14 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Join Room Modal */}
+      {showJoinModal && (
+        <RoomJoinModal
+          onClose={() => setShowJoinModal(false)}
+          onSuccess={handleJoinSuccess}
+        />
+      )}
 
       {/* Share Modal */}
       {shareModalRoom && (

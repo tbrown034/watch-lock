@@ -59,11 +59,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ rooms: [] })
     }
 
-    // Get room details
+    // Get room details (including game_id)
     const roomIds = memberships.map((m: any) => m.room_id)
     const { data: rooms, error: roomsError } = await supabase
       .from('rooms')
-      .select('id, name, share_code, max_members, created_at, created_by')
+      .select('id, name, share_code, max_members, created_at, created_by, game_id')
       .in('id', roomIds)
 
     if (roomsError) {
@@ -74,15 +74,25 @@ export async function GET(request: Request) {
       )
     }
 
-    // Get games for each room
-    const { data: games, error: gamesError } = await supabase
-      .from('games')
-      .select('room_id, external_id')
-      .in('room_id', roomIds)
+    // Get game_ids from rooms to fetch external_ids
+    const gameIds = rooms.map((r: any) => r.game_id).filter(Boolean)
+    let gamesMap: Record<string, string> = {}
 
-    if (gamesError) {
-      console.error('Error fetching games:', gamesError)
-      // Non-fatal - continue without game IDs
+    if (gameIds.length > 0) {
+      const { data: games, error: gamesError } = await supabase
+        .from('games')
+        .select('id, external_id')
+        .in('id', gameIds)
+
+      if (gamesError) {
+        console.error('Error fetching games:', gamesError)
+        // Non-fatal - continue without game IDs
+      } else if (games) {
+        gamesMap = games.reduce((acc: Record<string, string>, g: any) => {
+          acc[g.id] = g.external_id
+          return acc
+        }, {})
+      }
     }
 
     // Count members for each room
@@ -94,7 +104,6 @@ export async function GET(request: Request) {
           .eq('room_id', room.id)
 
         const membership = memberships.find((m: any) => m.room_id === room.id)
-        const game = games?.find((g: any) => g.room_id === room.id)
 
         return {
           id: room.id,
@@ -106,7 +115,7 @@ export async function GET(request: Request) {
           role: membership?.role || 'member',
           joinedAt: membership?.joined_at || room.created_at,
           createdAt: room.created_at,
-          gameId: game?.external_id
+          gameId: room.game_id ? gamesMap[room.game_id] : undefined
         }
       })
     )

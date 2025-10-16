@@ -13,7 +13,7 @@ import { Users, Crown, Clock, MessageSquare } from 'lucide-react'
 
 interface Member {
   userId: string
-  username: string
+  displayName: string
   avatarUrl?: string
   role: 'owner' | 'member'
   position: {
@@ -173,13 +173,13 @@ export function RoomMemberList({ roomId, refreshInterval = 30000 }: RoomMemberLi
                 {member.avatarUrl ? (
                   <img
                     src={member.avatarUrl}
-                    alt={member.username}
+                    alt={member.displayName}
                     className="w-10 h-10 rounded-full object-cover"
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                     <span className="text-white font-bold text-sm">
-                      {member.username.charAt(0).toUpperCase()}
+                      {member.displayName.charAt(0).toUpperCase()}
                     </span>
                   </div>
                 )}
@@ -195,7 +195,7 @@ export function RoomMemberList({ roomId, refreshInterval = 30000 }: RoomMemberLi
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">
-                    {member.username}
+                    {member.displayName}
                   </p>
                   {member.role === 'owner' && (
                     <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-semibold rounded">

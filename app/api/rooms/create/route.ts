@@ -112,24 +112,74 @@ export async function POST(request: Request) {
       )
     }
 
-    // Count existing rooms for this game to determine the next number
-    const { data: existingGames, error: countError } = await supabase
+    // FIND OR CREATE the game (ONE game per MLB/NFL game, multiple rooms per game)
+    // First, try to find existing game by external_id
+    let game = null
+    const { data: existingGame, error: findError } = await supabase
       .from('games')
-      .select('id, room_id')
+      .select('id, external_id')
       .eq('external_id', gameId)
+      .limit(1)
+      .maybeSingle()
+
+    if (findError) {
+      console.error('Error finding existing game:', findError)
+      return NextResponse.json(
+        { error: 'Failed to find game', details: findError.message },
+        { status: 500 }
+      )
+    }
+
+    if (existingGame) {
+      // Game already exists - reuse it
+      game = existingGame
+      console.log('Found existing game:', game.id)
+    } else {
+      // Game doesn't exist - create it (no room_id yet!)
+      const { data: newGame, error: gameCreateError } = await supabase
+        .from('games')
+        .insert({
+          sport: isNfl ? 'nfl' : 'mlb',
+          title: `${awayTeam} @ ${homeTeam}`,
+          home_team: homeTeam,
+          away_team: awayTeam,
+          external_id: gameId,
+          is_live: gameId.startsWith('mlb-') || gameId.startsWith('nfl-'),
+          created_by: user.id,
+        })
+        .select()
+        .single()
+
+      if (gameCreateError) {
+        console.error('Error creating game:', gameCreateError)
+        return NextResponse.json(
+          { error: 'Failed to create game', details: gameCreateError.message },
+          { status: 500 }
+        )
+      }
+
+      game = newGame
+      console.log('Created new game:', game.id)
+    }
+
+    // Count existing rooms for this game to determine room number
+    const { data: existingRooms, error: countError } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('game_id', game.id)
 
     if (countError) {
       console.error('Error counting existing rooms:', countError)
     }
 
     // Add room number if multiple rooms exist for this game
-    const roomCount = existingGames?.length || 0
+    const roomCount = existingRooms?.length || 0
     const finalRoomName = roomCount > 0
       ? `${baseRoomName} (${roomCount + 1})`
       : baseRoomName
 
-    // Create the room
-    console.log('Attempting to create room with:', { name: finalRoomName, shareCode, maxMembers, created_by: user.id })
+    // Create the room linked to the game
+    console.log('Attempting to create room with:', { name: finalRoomName, shareCode, maxMembers, game_id: game.id, created_by: user.id })
 
     const { data: room, error: roomError } = await supabase
       .from('rooms')
@@ -137,6 +187,7 @@ export async function POST(request: Request) {
         name: finalRoomName,
         share_code: shareCode,
         max_members: maxMembers,
+        game_id: game.id, // Link room to the shared game
         created_by: user.id,
       })
       .select()
@@ -152,33 +203,6 @@ export async function POST(request: Request) {
 
     // Room created successfully
     // Note: Database trigger automatically adds creator as room member with 'owner' role
-
-    // Create the game linked to this room
-    const { data: game, error: gameError } = await supabase
-      .from('games')
-      .insert({
-        room_id: room.id,
-        sport: 'mlb',
-        title: `${awayTeam} @ ${homeTeam}`,
-        home_team: homeTeam,
-        away_team: awayTeam,
-        external_id: gameId,
-        is_live: gameId.startsWith('mlb-'), // Live if it's an MLB API game
-        created_by: user.id,
-      })
-      .select()
-      .single()
-
-    if (gameError) {
-      console.error('Error creating game:', gameError)
-      // Rollback: delete the room since game creation failed
-      await supabase.from('rooms').delete().eq('id', room.id)
-
-      return NextResponse.json(
-        { error: 'Failed to create game', details: gameError.message },
-        { status: 500 }
-      )
-    }
 
     // Initialize creator's progress marker
     const { error: progressError } = await supabase

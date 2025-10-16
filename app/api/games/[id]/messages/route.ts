@@ -223,7 +223,7 @@ export async function GET(
         pos_meta,
         created_at,
         profiles:author_id (
-          username,
+          display_name,
           avatar_url
         )
       `)
@@ -251,7 +251,7 @@ export async function GET(
     const formattedMessages = messages.map((msg: any) => ({
       id: msg.id,
       authorId: msg.author_id,
-      username: msg.profiles?.username || 'Unknown',
+      displayName: msg.profiles?.display_name || 'User',
       avatarUrl: msg.profiles?.avatar_url,
       body: msg.body,
       pos: msg.pos,

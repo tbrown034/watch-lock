@@ -11,7 +11,7 @@ interface Message {
   createdAt: Date;
   author: {
     id: string;
-    username: string;
+    displayName: string;
     avatarUrl?: string | null;
   };
 }

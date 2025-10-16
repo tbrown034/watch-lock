@@ -6,50 +6,98 @@ import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { User as UserIcon, LogIn } from 'lucide-react';
 
+interface Profile {
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
 export default function AuthHeader() {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
-    // Check if user is already signed in
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const fetchUserAndProfile = async () => {
+      // Check if user is already signed in
+      const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-      setLoading(false);
 
-      // Update last_visited when user visits
+      // Fetch profile data
       if (user) {
-        supabase
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('display_name, avatar_url')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+        } else {
+          console.log('Profile data loaded:', profileData);
+          setProfile(profileData);
+        }
+
+        // Update last_visited when user visits
+        await supabase
           .from('profiles')
           .update({ last_visited: new Date().toISOString() })
-          .eq('id', user.id)
-          .then(({ error }) => {
-            if (error) {
-              console.error('Error updating last_visited:', error);
-            }
-          });
+          .eq('id', user.id);
       }
-    });
+
+      setLoading(false);
+    };
+
+    fetchUserAndProfile();
+
+    // Listen for profile updates (when user edits their profile)
+    const handleProfileUpdate = async (e: Event) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('display_name, avatar_url')
+          .eq('id', user.id)
+          .single();
+
+        setProfile(profileData);
+      }
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
 
-      // Update last_visited on sign in
       if (session?.user) {
-        supabase
+        // Fetch profile
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('display_name, avatar_url')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+        } else {
+          setProfile(profileData);
+        }
+
+        // Update last_visited on sign in
+        await supabase
           .from('profiles')
           .update({ last_visited: new Date().toISOString() })
-          .eq('id', session.user.id)
-          .then(({ error }) => {
-            if (error) {
-              console.error('Error updating last_visited:', error);
-            }
-          });
+          .eq('id', session.user.id);
+      } else {
+        setProfile(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('profileUpdated', handleProfileUpdate as EventListener);
+    };
   }, [supabase]);
 
   const handleSignIn = async () => {
@@ -66,22 +114,12 @@ export default function AuthHeader() {
   };
 
   const getUserDisplayName = () => {
-    if (user?.user_metadata?.full_name) {
-      const firstName = user.user_metadata.full_name.split(' ')[0];
-      return firstName.length > 12 ? `${firstName.slice(0, 12)}...` : firstName;
-    }
-    const email = user?.email?.split('@')[0] || 'User';
-    return email.length > 12 ? `${email.slice(0, 12)}...` : email;
-  };
-
-  const getUserInitials = () => {
-    if (user?.user_metadata?.full_name) {
-      const names = user.user_metadata.full_name.split(' ');
-      return names.length > 1
-        ? `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase()
-        : names[0][0].toUpperCase();
-    }
-    return user?.email?.[0]?.toUpperCase() || 'U';
+    // Use display_name from profile, fallback to Google given_name, then email
+    const displayName = profile?.display_name
+      || user?.user_metadata?.given_name
+      || user?.email?.split('@')[0]
+      || 'User';
+    return displayName.length > 12 ? `${displayName.slice(0, 12)}...` : displayName;
   };
 
   return (
@@ -96,9 +134,15 @@ export default function AuthHeader() {
           href="/profile"
           className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 text-sm font-medium text-slate-900 dark:text-slate-50 shadow-sm hover:shadow-md active:scale-95 active:shadow-sm group"
         >
-          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500 text-white text-xs font-semibold group-hover:scale-110 group-active:scale-100 transition-transform duration-200">
-            {getUserInitials()}
-          </div>
+          {profile?.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt={getUserDisplayName()}
+              className="w-7 h-7 rounded-full object-cover group-hover:scale-110 group-active:scale-100 transition-transform duration-200"
+            />
+          ) : (
+            <UserIcon className="w-7 h-7 text-slate-600 dark:text-slate-400 group-hover:scale-110 group-active:scale-100 transition-transform duration-200" />
+          )}
           <span className="hidden sm:inline">{getUserDisplayName()}</span>
         </Link>
       ) : (

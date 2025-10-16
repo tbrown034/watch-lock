@@ -43,53 +43,65 @@ export async function GET(
     // Since multiple rooms can exist for the same game, we need to join through room_members
     console.log('[Room Info] Looking for game with external_id:', gameId)
 
-    // Query games that match the external_id AND where user is a room member
+    // Query games that match the external_id
+    // Then find rooms for that game where user is a member
     const { data: games, error: gameError } = await supabase
       .from('games')
-      .select(`
-        id,
-        room_id,
-        room:rooms!inner(
-          id,
-          name,
-          share_code,
-          max_members,
-          created_by,
-          created_at,
-          room_members!inner(
-            user_id
-          )
-        )
-      `)
+      .select('id, external_id')
       .eq('external_id', gameId)
-      .eq('room.room_members.user_id', user.id)
+      .limit(1)
+      .maybeSingle()
 
-    console.log('[Room Info] Game query result:', { games, gameError })
+    console.log('[Room Info] Game query result:', { game: games, gameError })
 
-    if (gameError || !games || games.length === 0) {
-      console.log('[Room Info] Game not found or user not a member, returning 404')
+    if (gameError || !games) {
+      console.log('[Room Info] Game not found, returning 404')
       return NextResponse.json(
-        { error: 'Game not found or you are not a member of any room for this game' },
+        { error: 'Game not found' },
         { status: 404 }
       )
     }
 
-    // Get the first game (user should typically only be in one room per game)
-    const game = games[0]
+    const game = games
 
-    // Fetch room information
-    const { data: roomData, error: roomError } = await supabase
+    // Find rooms for this game where the user is a member
+    const { data: rooms, error: roomsError } = await supabase
       .from('rooms')
       .select('id, name, share_code, max_members, created_by, created_at')
-      .eq('id', game.room_id)
-      .single()
+      .eq('game_id', game.id)
 
-    if (roomError || !roomData) {
+    if (roomsError || !rooms || rooms.length === 0) {
+      console.log('[Room Info] No rooms found for user, returning 404')
       return NextResponse.json(
-        { error: 'Room not found' },
+        { error: 'You are not a member of any room for this game' },
         { status: 404 }
       )
     }
+
+    // Check which room(s) the user is a member of
+    const userRooms = []
+    for (const room of rooms) {
+      const { data: membership } = await supabase
+        .from('room_members')
+        .select('id')
+        .eq('room_id', room.id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (membership) {
+        userRooms.push(room)
+      }
+    }
+
+    if (userRooms.length === 0) {
+      return NextResponse.json(
+        { error: 'You are not a member of any room for this game' },
+        { status: 403 }
+      )
+    }
+
+    // Return the first room the user is in (they should typically only be in one)
+    const roomData = userRooms[0]
 
     // Count room members
     const { count: memberCount, error: countError } = await supabase

@@ -58,20 +58,22 @@ export async function GET(
       )
     }
 
-    // Get the game for this room
-    const { data: game, error: gameError } = await supabase
-      .from('games')
-      .select('id')
-      .eq('room_id', roomId)
+    // Get the room to find the game
+    const { data: room, error: roomError } = await supabase
+      .from('rooms')
+      .select('game_id')
+      .eq('id', roomId)
       .single()
 
-    if (gameError) {
-      console.error('Error fetching game:', gameError)
+    if (roomError || !room) {
+      console.error('Error fetching room:', roomError)
       return NextResponse.json(
-        { error: 'Failed to fetch game info' },
-        { status: 500 }
+        { error: 'Room not found' },
+        { status: 404 }
       )
     }
+
+    const game = { id: room.game_id }
 
     // Get all room members
     const { data: members, error: membersError } = await supabase
@@ -92,7 +94,7 @@ export async function GET(
     const userIds = members.map((m: any) => m.user_id)
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, username, avatar_url')
+      .select('id, display_name, avatar_url')
       .in('id', userIds)
 
     if (profilesError) {
@@ -135,7 +137,7 @@ export async function GET(
 
       return {
         userId: member.user_id,
-        username: profile?.username || 'Unknown',
+        displayName: profile?.display_name || 'User',
         avatarUrl: profile?.avatar_url,
         role: member.role,
         position: progress ? {

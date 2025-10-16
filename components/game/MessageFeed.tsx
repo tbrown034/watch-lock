@@ -12,7 +12,7 @@ interface Message {
   createdAt: Date;
   author: {
     id: string;
-    username: string;
+    displayName: string;
     avatarUrl?: string | null;
   };
 }
@@ -69,7 +69,7 @@ export function MessageFeed({
             key={message.id}
             message={{
               id: message.id,
-              author: message.author.username,
+              author: message.author.displayName,
               body: message.body,
               position: message.posMeta
             }}
