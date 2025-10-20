@@ -1,4 +1,9 @@
-'use client'
+/**
+ * Logo Component
+ *
+ * Server Component - No client-side features needed
+ * Just renders a Link with static content
+ */
 
 import Link from 'next/link';
 import { Lock } from 'lucide-react';

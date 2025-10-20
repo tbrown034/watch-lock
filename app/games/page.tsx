@@ -44,6 +44,31 @@ export default function GamesPage() {
   const [showAuthRequiredModal, setShowAuthRequiredModal] = useState(false);
   const [selectedGame, setSelectedGame] = useState<{ id: string; homeTeam: string; awayTeam: string; gameDate?: string } | null>(null);
   const [createdRoomData, setCreatedRoomData] = useState<{ shareCode: string; gameId: string; roomName: string } | null>(null);
+  const [currentTime, setCurrentTime] = useState<string>('');
+  const [today, setToday] = useState<string>('');
+
+  // Initialize time on client only
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('en-US', {
+        ...UI_CONFIG.DATE_FORMAT.TIME,
+        timeZone: UI_CONFIG.TIMEZONE,
+      }));
+      setToday(now.toLocaleDateString('en-US', {
+        ...UI_CONFIG.DATE_FORMAT.FULL,
+        timeZone: UI_CONFIG.TIMEZONE,
+      }));
+    };
+
+    // Set initial time
+    updateTime();
+
+    // Update time every minute
+    const interval = setInterval(updateTime, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Check auth status
   useEffect(() => {
@@ -56,7 +81,8 @@ export default function GamesPage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase.auth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount - subscription handles all auth changes
 
   // Fetch schedule (both MLB and NFL)
   useEffect(() => {
@@ -186,17 +212,6 @@ export default function GamesPage() {
     }
   };
 
-  const now = new Date();
-  const currentTime = now.toLocaleTimeString('en-US', {
-    ...UI_CONFIG.DATE_FORMAT.TIME,
-    timeZone: UI_CONFIG.TIMEZONE,
-  });
-
-  const today = now.toLocaleDateString('en-US', {
-    ...UI_CONFIG.DATE_FORMAT.FULL,
-    timeZone: UI_CONFIG.TIMEZONE,
-  });
-
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-4xl space-y-12">
@@ -214,7 +229,7 @@ export default function GamesPage() {
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
               Today's Games
             </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-slate-600 dark:text-slate-400" suppressHydrationWarning>
               {today} • {currentTime}
             </p>
           </div>

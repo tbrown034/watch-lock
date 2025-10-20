@@ -1,4 +1,9 @@
-'use client'
+/**
+ * AppFooter Component
+ *
+ * Server Component - Date calculation happens at build/request time on server
+ * No client-side features needed
+ */
 
 import Link from 'next/link';
 import { Lock } from 'lucide-react';

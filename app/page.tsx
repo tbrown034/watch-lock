@@ -1,44 +1,15 @@
-'use client'
+/**
+ * Home Page (Landing Page)
+ *
+ * Static marketing page - no auth required
+ * Auth is handled by AuthHeader component in layout
+ */
 
 import Link from 'next/link';
-import { Building2, Timer, MessageSquare, Lock, Users } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { useEffect, useState } from 'react';
-import type { User } from '@supabase/supabase-js';
+import { Building2, Timer, MessageSquare, Lock } from 'lucide-react';
 
 export default function Home() {
   const audiencePills = ['Families', 'Friends on delay', 'Roommates', 'Fan clubs'];
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
-
-  useEffect(() => {
-    // Check if user is already signed in
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase]);
-
-  const handleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-      console.error('Error signing in:', error);
-      alert('Error signing in. Please try again.');
-    }
-  };
 
   return (
     <div className="flex flex-col items-center justify-center px-4 py-14 sm:px-6 lg:px-8 md:py-20">

@@ -126,8 +126,7 @@ npm run dev
 
 ## Documentation
 
-- [DEVELOPMENT.md](./DEVELOPMENT.md) - Implementation details & API design
-- [TYPES.md](./TYPES.md) - TypeScript type reference
+- [CLAUDE.md](./CLAUDE.md) - Instructions for Claude Code (workflow, rules, constraints)
 
 ## Key Principles
 

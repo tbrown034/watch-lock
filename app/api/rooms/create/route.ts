@@ -1,28 +1,46 @@
 /**
  * POST /api/rooms/create
  *
- * Creates a new private room for a watch party
- * Requires authentication
+ * Creates a new watch party room for a game
  *
- * Request body:
+ * AUTHENTICATION: Required (Google OAuth)
+ *
+ * REQUEST BODY:
  * {
- *   "gameId": "mlb-746532",           // External game ID (from MLB API)
- *   "name": "My Watch Party",          // Base room name (will be reformatted with abbreviations + date)
+ *   "gameId": "mlb-746532",           // External game ID (from MLB/NFL API)
+ *   "name": "My Watch Party",          // Base room name
  *   "maxMembers": 10,                  // Optional, defaults to 10
- *   "homeTeam": "Yankees",             // From game data
- *   "awayTeam": "Red Sox",             // From game data
+ *   "homeTeam": "Yankees",             // From game schedule data
+ *   "awayTeam": "Red Sox",             // From game schedule data
  *   "gameDate": "2025-10-16T..."       // ISO date string from API
  * }
  *
- * Response:
+ * RESPONSE (Success 200):
  * {
  *   "roomId": "uuid",
- *   "shareCode": "ABC123",
- *   "gameId": "uuid"
+ *   "roomName": "NYY @ BOS - 10/16 (2)",  // Formatted with abbreviations
+ *   "shareCode": "ABC123",                 // 6-character share code
+ *   "gameId": "mlb-746532",                // External game ID
+ *   "success": true
  * }
+ *
+ * RESPONSE (Error 401):
+ * { "error": "Unauthorized" }
+ *
+ * RESPONSE (Error 400):
+ * { "error": "Missing required fields: ..." }
+ *
+ * HOW IT WORKS:
+ * 1. Verify user is authenticated (using server client + RLS)
+ * 2. Find or create game record (one game per external_id)
+ * 3. Generate unique 6-character share code
+ * 4. Create room linked to game (using admin client to bypass RLS)
+ * 5. Auto-add creator as owner (via database trigger)
+ * 6. Initialize creator's progress marker
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { getTeamAbbreviation as getMlbTeamAbbreviation } from '@/lib/mlb-teams'
 import { getTeamAbbreviation as getNflTeamAbbreviation } from '@/lib/nfl-teams'
@@ -51,6 +69,7 @@ function formatGameDate(isoDate: string): string {
 
 export async function POST(request: Request) {
   try {
+    // Use regular client for authentication
     const supabase = await createClient()
 
     // Check authentication
@@ -64,6 +83,9 @@ export async function POST(request: Request) {
         { status: 401 }
       )
     }
+
+    // Use admin client for database operations (bypasses RLS)
+    const admin = createAdminClient()
 
     // Parse request body
     const body = await request.json()
@@ -93,7 +115,7 @@ export async function POST(request: Request) {
     const maxAttempts = 10
 
     while (attempts < maxAttempts) {
-      const { data: existing } = await supabase
+      const { data: existing } = await admin
         .from('rooms')
         .select('id')
         .eq('share_code', shareCode)
@@ -115,7 +137,7 @@ export async function POST(request: Request) {
     // FIND OR CREATE the game (ONE game per MLB/NFL game, multiple rooms per game)
     // First, try to find existing game by external_id
     let game = null
-    const { data: existingGame, error: findError } = await supabase
+    const { data: existingGame, error: findError } = await admin
       .from('games')
       .select('id, external_id')
       .eq('external_id', gameId)
@@ -136,7 +158,7 @@ export async function POST(request: Request) {
       console.log('Found existing game:', game.id)
     } else {
       // Game doesn't exist - create it (no room_id yet!)
-      const { data: newGame, error: gameCreateError } = await supabase
+      const { data: newGame, error: gameCreateError } = await admin
         .from('games')
         .insert({
           sport: isNfl ? 'nfl' : 'mlb',
@@ -163,7 +185,7 @@ export async function POST(request: Request) {
     }
 
     // Count existing rooms for this game to determine room number
-    const { data: existingRooms, error: countError } = await supabase
+    const { data: existingRooms, error: countError } = await admin
       .from('rooms')
       .select('id')
       .eq('game_id', game.id)
@@ -181,7 +203,7 @@ export async function POST(request: Request) {
     // Create the room linked to the game
     console.log('Attempting to create room with:', { name: finalRoomName, shareCode, maxMembers, game_id: game.id, created_by: user.id })
 
-    const { data: room, error: roomError } = await supabase
+    const { data: room, error: roomError } = await admin
       .from('rooms')
       .insert({
         name: finalRoomName,
@@ -205,7 +227,7 @@ export async function POST(request: Request) {
     // Note: Database trigger automatically adds creator as room member with 'owner' role
 
     // Initialize creator's progress marker
-    const { error: progressError } = await supabase
+    const { error: progressError } = await admin
       .from('progress_markers')
       .insert({
         game_id: game.id,

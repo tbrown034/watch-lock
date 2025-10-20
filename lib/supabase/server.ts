@@ -1,8 +1,32 @@
 /**
- * Supabase Client (Server)
+ * Supabase Server Client
  *
- * Use this in server components, API routes, and server actions
- * Handles cookies for authentication
+ * Official Supabase pattern for Next.js 15 App Router
+ * Source: https://supabase.com/docs/guides/auth/server-side/nextjs
+ *
+ * Usage: Server Components, API Routes, Server Actions
+ * Security: Respects Row Level Security (RLS) policies
+ * Auth: Reads session from cookies (set by middleware)
+ *
+ * CRITICAL: Always call `await cookies()` BEFORE creating Supabase client
+ * This opts Server Components out of Next.js static caching
+ *
+ * Example (Server Component):
+ * ```tsx
+ * import { createClient } from '@/lib/supabase/server'
+ * const supabase = await createClient()
+ * const { data: { user } } = await supabase.auth.getUser()
+ * ```
+ *
+ * Example (API Route):
+ * ```tsx
+ * import { createClient } from '@/lib/supabase/server'
+ * export async function GET() {
+ *   const supabase = await createClient()
+ *   const { data } = await supabase.from('table').select()
+ *   return Response.json(data)
+ * }
+ * ```
  */
 
 import { createServerClient } from '@supabase/ssr'

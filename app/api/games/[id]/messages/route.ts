@@ -1,11 +1,65 @@
 /**
  * Messages API for a game
  *
- * POST /api/games/[gameId]/messages
- * - Create a new message at current position
+ * Handles spoiler-locked chat messages tied to game positions
  *
+ * ============================================
+ * POST /api/games/[gameId]/messages
+ * ============================================
+ * Creates a new message at user's current position
+ *
+ * AUTHENTICATION: Required (must be room member)
+ *
+ * REQUEST BODY:
+ * {
+ *   "body": "Great catch!",
+ *   "pos": 31,
+ *   "posMeta": {"inning": 3, "half": "TOP", "outs": 1}
+ * }
+ *
+ * RESPONSE (Success 200):
+ * {
+ *   "message": {
+ *     "id": "uuid",
+ *     "body": "Great catch!",
+ *     "pos": 31,
+ *     "posMeta": {...},
+ *     "createdAt": "2025-01-20T..."
+ *   },
+ *   "success": true
+ * }
+ *
+ * ============================================
  * GET /api/games/[gameId]/messages
- * - Fetch messages (RLS automatically filters by user's position)
+ * ============================================
+ * Fetches messages up to user's current position (spoiler filter)
+ *
+ * QUERY PARAMS:
+ * - limit: number of messages (default 50, max 100)
+ * - before: cursor for pagination (message ID)
+ *
+ * RESPONSE (Success 200):
+ * {
+ *   "messages": [
+ *     {
+ *       "id": "uuid",
+ *       "authorId": "uuid",
+ *       "displayName": "alice",
+ *       "avatarUrl": "https://...",
+ *       "body": "Great catch!",
+ *       "pos": 31,
+ *       "posMeta": {...},
+ *       "createdAt": "2025-01-20T..."
+ *     }
+ *   ],
+ *   "success": true
+ * }
+ *
+ * WHY MANUAL AUTH CHECKS?
+ * We verify room membership manually (not just via RLS) to provide
+ * better error messages to users. RLS would just return empty results,
+ * but explicit checks let us tell users "You don't have access" vs
+ * "No messages found".
  */
 
 import { createClient } from '@/lib/supabase/server'
@@ -60,25 +114,28 @@ export async function POST(
     }
 
     // Verify user has access to this game (via room membership)
-    const { data: game, error: gameError } = await supabase
-      .from('games')
-      .select('room_id')
-      .eq('id', gameId)
-      .single()
+    // Find rooms for this game where user is a member
+    const { data: rooms, error: roomsError } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('game_id', gameId)
 
-    if (gameError || !game) {
+    if (roomsError || !rooms || rooms.length === 0) {
       return NextResponse.json(
-        { error: 'Game not found' },
+        { error: 'Game not found or no rooms exist' },
         { status: 404 }
       )
     }
 
+    // Check if user is a member of ANY room for this game
+    const roomIds = rooms.map(r => r.id)
     const { data: membership, error: membershipError } = await supabase
       .from('room_members')
-      .select('id')
-      .eq('room_id', game.room_id)
+      .select('id, room_id')
+      .in('room_id', roomIds)
       .eq('user_id', user.id)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     if (membershipError || !membership) {
       return NextResponse.json(
@@ -110,10 +167,12 @@ export async function POST(
     }
 
     // Update room last activity
-    await supabase
-      .from('rooms')
-      .update({ last_activity_at: new Date().toISOString() })
-      .eq('id', game.room_id)
+    if (membership?.room_id) {
+      await supabase
+        .from('rooms')
+        .update({ last_activity_at: new Date().toISOString() })
+        .eq('id', membership.room_id)
+    }
 
     return NextResponse.json({
       message: {
@@ -184,25 +243,28 @@ export async function GET(
     const before = searchParams.get('before') // Message ID for pagination
 
     // Verify user has access to this game (via room membership)
-    const { data: game, error: gameError } = await supabase
-      .from('games')
-      .select('room_id')
-      .eq('id', gameId)
-      .single()
+    // Find rooms for this game where user is a member
+    const { data: rooms, error: roomsError } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('game_id', gameId)
 
-    if (gameError || !game) {
+    if (roomsError || !rooms || rooms.length === 0) {
       return NextResponse.json(
-        { error: 'Game not found' },
+        { error: 'Game not found or no rooms exist' },
         { status: 404 }
       )
     }
 
+    // Check if user is a member of ANY room for this game
+    const roomIds = rooms.map(r => r.id)
     const { data: membership, error: membershipError } = await supabase
       .from('room_members')
-      .select('id')
-      .eq('room_id', game.room_id)
+      .select('id, room_id')
+      .in('room_id', roomIds)
       .eq('user_id', user.id)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     if (membershipError || !membership) {
       return NextResponse.json(

@@ -1,8 +1,58 @@
+/**
+ * GET /api/games/[id]/state
+ *
+ * Fetches live game state from MLB/NFL APIs
+ *
+ * AUTHENTICATION: None (intentionally public)
+ *
+ * WHY PUBLIC?
+ * This endpoint proxies public data from MLB StatsAPI and ESPN APIs.
+ * The data itself is public information (scores, innings, etc).
+ * Making it public allows:
+ * - Faster page loads (no auth check)
+ * - Easier debugging and testing
+ * - Consistent with the source APIs being public
+ *
+ * PRIVACY: This does NOT expose any user data, rooms, or messages.
+ * Those are protected by RLS and require authentication.
+ *
+ * REQUEST:
+ * - [id]: Game ID (format: "mlb-746532" or "nfl-2024010800")
+ *
+ * RESPONSE (MLB Success):
+ * {
+ *   "source": "mlb",
+ *   "score": { "away": 3, "home": 2 },
+ *   "inning": 5,
+ *   "half": "TOP",
+ *   "outs": 1,
+ *   "isFinal": false,
+ *   "posMeta": { "sport": "mlb", "inning": 5, "half": "TOP", "outs": 1 }
+ * }
+ *
+ * RESPONSE (NFL Success):
+ * {
+ *   "source": "nfl",
+ *   "score": { "away": 21, "home": 17 },
+ *   "quarter": 3,
+ *   "time": "8:42",
+ *   "possession": "away",
+ *   "isFinal": false,
+ *   "posMeta": { "sport": "nfl", "quarter": 3, "time": "8:42", "possession": "away" }
+ * }
+ *
+ * RESPONSE (Error):
+ * {
+ *   "source": "mlb" | "nfl",
+ *   "status": "error",
+ *   "message": "Error description",
+ *   "posMeta": null
+ * }
+ */
+
 import { NextResponse } from 'next/server';
 import { fetchMlbGameState } from '@/lib/services/mlbGameState';
 import { fetchNflGameState } from '@/lib/services/nflGameState';
-import { mockGames } from '@/lib/mock-data';
-import { UI_CONFIG } from '@/lib/constants';
 
 interface RouteContext {
   params: Promise<{
@@ -10,6 +60,7 @@ interface RouteContext {
   }>;
 }
 
+// Force dynamic rendering (no static caching)
 export const dynamic = 'force-dynamic';
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -17,18 +68,6 @@ export async function GET(_request: Request, context: RouteContext) {
 
   if (!id) {
     return NextResponse.json({ message: 'Missing game id' }, { status: 400 });
-  }
-
-  // Handle mock/demo games
-  if (!id.startsWith('mlb-') && !id.startsWith('nfl-')) {
-    const mockGame = mockGames.find((game) => game.id === id);
-    const start = mockGame?.startTime ? `${mockGame.startTime} ${UI_CONFIG.TIMEZONE.split('/').pop()}` : 'TBD';
-    return NextResponse.json({
-      source: 'mock',
-      status: 'demo',
-      message: `Demo matchup scheduled for ${start}. Use the controls to set your own progress.`,
-      posMeta: null,
-    });
   }
 
   // Handle NFL games

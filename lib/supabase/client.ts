@@ -1,8 +1,18 @@
 /**
- * Supabase Client (Browser)
+ * Supabase Browser Client
  *
- * Use this in client components (use client directive)
- * This client respects Row Level Security policies
+ * Official Supabase pattern for Next.js 15 App Router
+ * Source: https://supabase.com/docs/guides/auth/server-side/nextjs
+ *
+ * Usage: Client Components only (components with 'use client')
+ * Security: Respects Row Level Security (RLS) policies
+ *
+ * Example:
+ * ```tsx
+ * 'use client'
+ * import { createClient } from '@/lib/supabase/client'
+ * const supabase = useMemo(() => createClient(), [])
+ * ```
  */
 
 import { createBrowserClient } from '@supabase/ssr'

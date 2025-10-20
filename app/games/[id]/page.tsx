@@ -8,7 +8,6 @@ import { ExactPosition } from '@/components/game/ExactPosition';
 import { FieldView } from '@/components/game/FieldView';
 import { MessageCard } from '@/components/game/MessageCard';
 import { HowItWorks } from '@/components/game/HowItWorks';
-import { mockGames, MockMessage } from '@/lib/mock-data';
 import {
   MlbMeta,
   NflMeta,
@@ -17,6 +16,13 @@ import {
   formatMlbPositionWithTeams,
   formatNflPositionWithTeams
 } from '@/lib/position';
+
+interface MockMessage {
+  id: string;
+  author: string;
+  body: string;
+  position: MlbMeta | NflMeta;
+}
 import { MESSAGE_CONSTRAINTS, UI_CONFIG, STORAGE_KEYS } from '@/lib/constants';
 import type { MlbScheduleGame } from '@/lib/services/mlbSchedule';
 import type { NflScheduleGame } from '@/lib/services/nflSchedule';
@@ -32,8 +38,6 @@ export default function GameRoomPage() {
   const params = useParams();
   const router = useRouter();
   const gameId = params.id as string;
-
-  const game = mockGames.find(g => g.id === gameId);
 
   // Detect sport from gameId
   const isNflGame = gameId.startsWith('nfl-');
@@ -103,7 +107,7 @@ export default function GameRoomPage() {
     isOwner: boolean;
   } | null>(null);
   const timezoneAbbr = UI_CONFIG.TIMEZONE.split('/').pop();
-  const resolvedGame = game ?? liveGame ?? null;
+  const resolvedGame = liveGame ?? null;
   const awayTeam = resolvedGame?.awayTeam ?? 'Away';
   const homeTeam = resolvedGame?.homeTeam ?? 'Home';
   const startTimeLabel = resolvedGame?.startTime ? `${resolvedGame.startTime} ${timezoneAbbr}` : `TBD ${timezoneAbbr}`;
